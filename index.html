@@ -1,0 +1,1695 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<title>Seguimiento</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#f3ede2" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="default" />
+<meta name="apple-mobile-web-app-title" content="Seguimiento" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20180%20180%22%3E%3Crect%20width%3D%22180%22%20height%3D%22180%22%20rx%3D%2240%22%20fill%3D%22%23b04a2f%22%2F%3E%3Cpath%20d%3D%22M52%2096l22%2022%2054-58%22%20fill%3D%22none%22%20stroke%3D%22%23f3ede2%22%20stroke-width%3D%2214%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3C%2Fsvg%3E" />
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20180%20180%22%3E%3Crect%20width%3D%22180%22%20height%3D%22180%22%20rx%3D%2240%22%20fill%3D%22%23b04a2f%22%2F%3E%3Cpath%20d%3D%22M52%2096l22%2022%2054-58%22%20fill%3D%22none%22%20stroke%3D%22%23f3ede2%22%20stroke-width%3D%2214%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3C%2Fsvg%3E" />
+<link rel="manifest" href="data:application/manifest+json,%7B%22name%22%3A%22Seguimiento%22%2C%22short_name%22%3A%22Seguimiento%22%2C%22start_url%22%3A%22.%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%23f3ede2%22%2C%22theme_color%22%3A%22%23f3ede2%22%2C%22icons%22%3A%5B%7B%22src%22%3A%22data%3Aimage%2Fsvg%2Bxml%2C%253Csvg%2520xmlns%253D%2522http%253A%252F%252Fwww.w3.org%252F2000%252Fsvg%2522%2520viewBox%253D%25220%25200%2520180%2520180%2522%253E%253Crect%2520width%253D%2522180%2522%2520height%253D%2522180%2522%2520rx%253D%252240%2522%2520fill%253D%2522%2523b04a2f%2522%252F%253E%253Cpath%2520d%253D%2522M52%252096l22%252022%252054-58%2522%2520fill%253D%2522none%2522%2520stroke%253D%2522%2523f3ede2%2522%2520stroke-width%253D%252214%2522%2520stroke-linecap%253D%2522round%2522%2520stroke-linejoin%253D%2522round%2522%252F%253E%253C%252Fsvg%253E%22%2C%22sizes%22%3A%22any%22%2C%22type%22%3A%22image%2Fsvg%2Bxml%22%7D%5D%7D" />
+<style>
+  html, body { margin: 0; height: 100%; background: #f3ede2; -webkit-text-size-adjust: 100%; }
+  #root { height: 100%; }
+  /* respeta el notch del iPhone */
+  @media (max-width: 780px) {
+    .pt-mobilebar { padding-top: env(safe-area-inset-top) !important; height: calc(56px + env(safe-area-inset-top)) !important; }
+    .pt-main { padding-top: calc(64px + env(safe-area-inset-top)) !important; }
+  }
+  #loadingmsg { font-family: system-ui, sans-serif; color: #8a7d6c; text-align: center; padding-top: 30vh; }
+</style>
+
+<!-- almacenamiento real del navegador (reemplaza window.storage de Claude) -->
+<script>
+(function () {
+  if (window.storage) return;
+  var ls = window.localStorage;
+  window.storage = {
+    get: function (k) { var v = ls.getItem(k); return Promise.resolve(v == null ? null : { key: k, value: v, shared: false }); },
+    set: function (k, v) { ls.setItem(k, v); return Promise.resolve({ key: k, value: v, shared: false }); },
+    "delete": function (k) { ls.removeItem(k); return Promise.resolve({ key: k, deleted: true, shared: false }); },
+    list: function (p) { p = p || ""; var keys = Object.keys(ls).filter(function (x) { return x.indexOf(p) === 0; }); return Promise.resolve({ keys: keys, prefix: p, shared: false }); }
+  };
+})();
+</script>
+
+<!-- React e iconos desde CDN, resueltos por import map -->
+<script type="importmap">
+{
+  "imports": {
+    "react": "https://esm.sh/react@18.3.1",
+    "react/jsx-runtime": "https://esm.sh/react@18.3.1/jsx-runtime",
+    "react-dom": "https://esm.sh/react-dom@18.3.1",
+    "react-dom/client": "https://esm.sh/react-dom@18.3.1/client",
+    "lucide-react": "https://esm.sh/lucide-react@0.383.0?external=react"
+  }
+}
+</script>
+<script src="https://unpkg.com/@babel/standalone@7.25.6/babel.min.js"></script>
+</head>
+<body>
+<div id="root"><div id="loadingmsg">Cargando Seguimiento…</div></div>
+
+<script type="text/babel" data-type="module" data-presets="react">
+import React, { useState, useEffect, useRef, useCallback, useContext } from "react";
+import {
+  Plus, Trash2, X, Check, Circle, CheckCircle2, ListChecks, BarChart3,
+  CalendarDays, StickyNote, Link2, Lightbulb, ArrowRight, SlidersHorizontal,
+  FolderOpen, Menu, ChevronLeft, ExternalLink, Pencil, Cloud, CloudOff,
+  AlertTriangle, User, Flag, Users, Copy, Home as HomeIcon, CalendarClock,
+  Download, Upload, Search,
+} from "lucide-react";
+
+/* ------------------------------------------------------------------ *
+ *  Seguimiento de proyectos — single-file artifact
+ * ------------------------------------------------------------------ */
+
+const STORAGE_KEY = "tracker:v1";
+
+// Contexto para mostrar avisos breves (toasts) desde cualquier componente
+const ToastContext = React.createContext(null);
+
+const ACCENTS = ["#b04a2f", "#6f7a52", "#2f6f7a", "#8a5a2f", "#7a2f5a", "#3f5a8a"];
+
+const SECTIONS = [
+  { key: "tasks", label: "Current Tasks", icon: ListChecks },
+  { key: "meetings", label: "Meetings", icon: CalendarDays },
+  { key: "progress", label: "Progress", icon: BarChart3 },
+  { key: "notes", label: "Notes", icon: StickyNote },
+  { key: "links", label: "Links", icon: Link2 },
+  { key: "decisions", label: "Decisions", icon: Lightbulb },
+  { key: "nextSteps", label: "Future Tasks", icon: ArrowRight },
+  { key: "risks", label: "Risks", icon: AlertTriangle },
+];
+
+const STATUSES = ["Sin empezar", "En curso", "En pausa", "Bloqueado", "Hecho"];
+
+// Niveles de urgencia / impacto (H/M/L) reutilizados en Tasks y Risks
+const LEVELS = {
+  H: { label: "H", color: "#b3331f", bg: "#f4e0db" },
+  M: { label: "M", color: "#94701a", bg: "#f1e7cf" },
+  L: { label: "L", color: "#5d6a44", bg: "#e6ebda" },
+};
+const cycleLevel = (l) => (l === "H" ? "M" : l === "M" ? "L" : "H");
+
+const uid = () =>
+  (typeof crypto !== "undefined" && crypto.randomUUID)
+    ? crypto.randomUUID()
+    : Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+
+const today = () => new Date().toISOString().slice(0, 10);
+
+// Días enteros desde hoy hasta una fecha YYYY-MM-DD (negativo = vencida)
+function daysUntil(dateStr) {
+  if (!dateStr) return null;
+  const d = new Date(dateStr + "T00:00:00");
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+  return Math.round((d - now) / 86400000);
+}
+
+const ALIGN_LABEL = {
+  tasks: "Current Task", progressLog: "Progress", progressSummary: "Progress",
+  meetings: "Meeting", notes: "Notes", links: "Link",
+  decisions: "Decision", nextSteps: "Future Task", risks: "Risk",
+};
+const ALIGN_ICON = {
+  tasks: ListChecks, progressLog: BarChart3, progressSummary: BarChart3,
+  meetings: CalendarDays, notes: StickyNote, links: Link2,
+  decisions: Lightbulb, nextSteps: ArrowRight, risks: AlertTriangle,
+};
+
+// Reúne todos los elementos marcados para alinear con Maxine, agrupables por proyecto
+function collectAligned(projects) {
+  const out = [];
+  for (const p of projects) {
+    const base = { projectId: p.id, projectName: p.name, accent: p.accent };
+    (p.tasks || []).filter((t) => t.aligned).forEach((t) =>
+      out.push({ ...base, section: "tasks", itemId: t.id, primary: t.text, level: t.level, due: t.due, done: !!t.alignDone }));
+    (p.progress?.log || []).filter((l) => l.aligned).forEach((l) =>
+      out.push({ ...base, section: "progressLog", itemId: l.id, primary: l.text, meta: l.date, done: !!l.alignDone }));
+    if (p.progressAlign?.aligned)
+      out.push({ ...base, section: "progressSummary", itemId: "summary", primary: `${p.progress?.percent ?? 0}% · ${p.progress?.status ?? ""}`, done: !!p.progressAlign.alignDone });
+    (p.meetings || []).filter((m) => m.aligned).forEach((m) =>
+      out.push({ ...base, section: "meetings", itemId: m.id, primary: m.title, secondary: m.person ? `con ${m.person}` : "", meta: m.date, done: !!m.alignDone }));
+    if (p.notesAlign?.aligned)
+      out.push({ ...base, section: "notes", itemId: "notes", primary: p.notes || "(notas vacías)", done: !!p.notesAlign.alignDone });
+    (p.links || []).filter((l) => l.aligned).forEach((l) =>
+      out.push({ ...base, section: "links", itemId: l.id, primary: l.label, meta: l.url, done: !!l.alignDone }));
+    (p.decisions || []).filter((d) => d.aligned).forEach((d) =>
+      out.push({ ...base, section: "decisions", itemId: d.id, primary: d.decision, secondary: d.rationale, meta: d.date, done: !!d.alignDone }));
+    (p.nextSteps || []).filter((n) => n.aligned).forEach((n) =>
+      out.push({ ...base, section: "nextSteps", itemId: n.id, primary: n.text, done: !!n.alignDone }));
+    (p.risks || []).filter((r) => r.aligned).forEach((r) =>
+      out.push({ ...base, section: "risks", itemId: r.id, primary: r.text, secondary: r.mitigation, level: r.level, done: !!r.alignDone }));
+  }
+  return out;
+}
+
+function newProject(name, sections, accent) {
+  return {
+    id: uid(),
+    name: name.trim() || "Sin título",
+    accent,
+    createdAt: Date.now(),
+    sections: { ...DEFAULT_SECTIONS, ...sections },
+    tasks: [],
+    progress: { percent: 0, status: "Sin empezar", log: [] },
+    meetings: [],
+    notes: "",
+    links: [],
+    decisions: [],
+    nextSteps: [],
+    risks: [],
+  };
+}
+
+const DEFAULT_SECTIONS = { tasks: false, progress: false, meetings: false, notes: false, links: false, decisions: false, nextSteps: false, risks: false };
+
+/* ----------------------------- storage ---------------------------- */
+async function loadData() {
+  try {
+    if (typeof window !== "undefined" && window.storage) {
+      const res = await window.storage.get(STORAGE_KEY);
+      if (res && res.value) return normalize(JSON.parse(res.value));
+    }
+  } catch (e) { /* first run or unavailable */ }
+  return { projects: [] };
+}
+
+// Asegura que proyectos guardados antes de añadir campos nuevos sigan funcionando
+function normalize(data) {
+  if (!data || !Array.isArray(data.projects)) return { projects: [] };
+  return {
+    ...data,
+    projects: data.projects.map((p) => ({
+      ...p,
+      risks: Array.isArray(p.risks) ? p.risks : [],
+      sections: { risks: false, ...(p.sections || {}) },
+      tasks: (p.tasks || []).map((t) => ({ level: "M", ...t })),
+    })),
+  };
+}
+async function saveData(data) {
+  if (typeof window !== "undefined" && window.storage) {
+    await window.storage.set(STORAGE_KEY, JSON.stringify(data));
+  }
+}
+
+/* =================================================================== */
+export default function App() {
+  const [data, setData] = useState({ projects: [] });
+  const [selectedId, setSelectedId] = useState(null);
+  const [view, setView] = useState("home"); // "home" | "project" | "align" | "search"
+  const [query, setQuery] = useState("");
+  const [focus, setFocus] = useState(null); // { key, ts } para resaltar una sección
+  const [loading, setLoading] = useState(true);
+  const [creating, setCreating] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [syncState, setSyncState] = useState("idle"); // idle | saving | error
+  const [toast, setToast] = useState(null);
+  const loadedRef = useRef(false);
+  const saveTimer = useRef(null);
+
+  const notify = useCallback((msg) => setToast({ msg, id: Date.now() }), []);
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 2200);
+    return () => clearTimeout(t);
+  }, [toast]);
+
+  useEffect(() => {
+    loadData().then((d) => {
+      setData(d);
+      if (d.projects.length) setSelectedId(d.projects[0].id);
+      setLoading(false);
+      loadedRef.current = true;
+    });
+  }, []);
+
+  // debounced persistence
+  useEffect(() => {
+    if (!loadedRef.current) return;
+    setSyncState("saving");
+    clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => {
+      saveData(data)
+        .then(() => setSyncState("idle"))
+        .catch(() => setSyncState("error"));
+    }, 450);
+    return () => clearTimeout(saveTimer.current);
+  }, [data]);
+
+  const project = data.projects.find((p) => p.id === selectedId) || null;
+
+  const patchProject = useCallback((id, patch) => {
+    setData((d) => ({
+      ...d,
+      projects: d.projects.map((p) =>
+        p.id === id ? { ...p, ...(typeof patch === "function" ? patch(p) : patch) } : p
+      ),
+    }));
+  }, []);
+
+  const addProject = (name, sections) => {
+    const accent = ACCENTS[data.projects.length % ACCENTS.length];
+    const np = newProject(name, sections, accent);
+    setData((d) => ({ ...d, projects: [...d.projects, np] }));
+    setSelectedId(np.id);
+    setView("project");
+    setCreating(false);
+    setSidebarOpen(false);
+  };
+
+  const deleteProject = (id) => {
+    setData((d) => {
+      const projects = d.projects.filter((p) => p.id !== id);
+      if (id === selectedId) setSelectedId(projects[0]?.id ?? null);
+      return { ...d, projects };
+    });
+  };
+
+  const fileInputRef = useRef(null);
+
+  // Abre un work stream; si se indica sección, la activa (si estaba oculta) y la resalta
+  const openProject = (pid, section = null) => {
+    setSelectedId(pid);
+    setView("project");
+    setSidebarOpen(false);
+    if (section) {
+      patchProject(pid, (p) => (p.sections?.[section] ? {} : { sections: { ...p.sections, [section]: true } }));
+      setFocus({ key: section, ts: Date.now() });
+    } else {
+      setFocus(null);
+    }
+  };
+
+  const exportData = () => {
+    try {
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `seguimiento-backup-${today()}.json`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      notify("Datos exportados");
+    } catch (e) {
+      notify("No se pudo exportar");
+    }
+  };
+
+  const importData = (file) => {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const parsed = JSON.parse(reader.result);
+        const clean = normalize(parsed);
+        if (!Array.isArray(clean.projects)) throw new Error("formato");
+        if (!confirm(`Importar ${clean.projects.length} work stream(s)? Esto reemplazará todos tus datos actuales.`)) return;
+        setData(clean);
+        setSelectedId(clean.projects[0]?.id ?? null);
+        setView("home");
+        notify("Datos importados");
+      } catch (e) {
+        notify("Archivo no válido");
+      }
+    };
+    reader.onerror = () => notify("No se pudo leer el archivo");
+    reader.readAsText(file);
+  };
+
+  // Cambia banderas de alineación de cualquier elemento, en cualquier sección
+  const setItemAlign = useCallback((projectId, section, itemId, field, value) => {
+    const mapList = (arr) => arr.map((it) => it.id === itemId ? { ...it, [field]: value } : it);
+    patchProject(projectId, (p) => {
+      switch (section) {
+        case "tasks": return { tasks: mapList(p.tasks) };
+        case "meetings": return { meetings: mapList(p.meetings) };
+        case "links": return { links: mapList(p.links) };
+        case "decisions": return { decisions: mapList(p.decisions) };
+        case "nextSteps": return { nextSteps: mapList(p.nextSteps) };
+        case "risks": return { risks: mapList(p.risks) };
+        case "progressLog": return { progress: { ...p.progress, log: mapList(p.progress.log) } };
+        case "progressSummary": return { progressAlign: { ...(p.progressAlign || {}), [field]: value } };
+        case "notes": return { notesAlign: { ...(p.notesAlign || {}), [field]: value } };
+        default: return {};
+      }
+    });
+  }, [patchProject]);
+
+  const alignedPoints = collectAligned(data.projects);
+  const openCount = alignedPoints.filter((a) => !a.done).length;
+
+  return (
+    <ToastContext.Provider value={notify}>
+    <div style={S.root}>
+      <StyleTag />
+
+      {/* mobile top bar */}
+      <div style={S.mobileBar} className="pt-mobilebar">
+        <button style={S.iconBtn} onClick={() => setSidebarOpen(true)} aria-label="Abrir proyectos">
+          <Menu size={20} />
+        </button>
+        <span style={{ fontFamily: "Fraunces, serif", fontWeight: 600, fontSize: 17 }}>
+          {view === "search" ? "Buscar" : view === "home" ? "Home" : view === "align" ? "Align with Maxine" : project ? project.name : "Mis work streams"}
+        </span>
+        <SyncDot state={syncState} />
+      </div>
+
+      {/* backdrop for mobile sidebar */}
+      {sidebarOpen && <div style={S.backdrop} onClick={() => setSidebarOpen(false)} />}
+
+      {/* SIDEBAR */}
+      <aside
+        style={{ ...S.sidebar, ...(sidebarOpen ? S.sidebarOpen : null) }}
+        className="pt-sidebar"
+      >
+        <div style={S.brand}>
+          <div style={S.brandMark}><FolderOpen size={18} /></div>
+          <div>
+            <div style={{ fontFamily: "Fraunces, serif", fontWeight: 600, fontSize: 19, lineHeight: 1 }}>Seguimiento</div>
+            <div style={{ fontSize: 11.5, color: "var(--muted)", letterSpacing: ".04em", marginTop: 3 }}>
+              {data.projects.length} work stream{data.projects.length === 1 ? "" : "s"}
+            </div>
+          </div>
+          <button style={{ ...S.iconBtn, marginLeft: "auto" }} className="pt-closebtn" onClick={() => setSidebarOpen(false)}>
+            <X size={18} />
+          </button>
+        </div>
+
+        <div style={S.searchWrap}>
+          <Search size={15} color="var(--muted)" style={{ flex: "0 0 auto" }} />
+          <input
+            value={query}
+            onChange={(e) => {
+              const v = e.target.value;
+              setQuery(v);
+              if (v.trim()) setView("search");
+              else if (view === "search") setView("home");
+            }}
+            placeholder="Buscar en todo…"
+            style={S.searchInput}
+          />
+          {query && (
+            <button style={{ ...S.iconBtn, padding: 0 }} onClick={() => { setQuery(""); if (view === "search") setView("home"); }}>
+              <X size={15} />
+            </button>
+          )}
+        </div>
+
+        <button style={S.newBtn} onClick={() => { setCreating(true); setSidebarOpen(false); }}>
+          <Plus size={16} /> Nuevo
+        </button>
+
+        <button
+          onClick={() => { setView("home"); setSidebarOpen(false); }}
+          style={{ ...S.maxineTab, ...(view === "home" ? S.maxineTabActive : null) }}
+        >
+          <span style={{ ...S.maxineIcon, background: "rgba(47,111,122,.14)", color: "#2f6f7a" }}><HomeIcon size={15} /></span>
+          <span style={{ flex: 1, textAlign: "left" }}>Home</span>
+        </button>
+
+        <button
+          onClick={() => { setView("align"); setSidebarOpen(false); }}
+          style={{ ...S.maxineTab, marginTop: 8, ...(view === "align" ? S.maxineTabActive : null) }}
+        >
+          <span style={S.maxineIcon}><Users size={15} /></span>
+          <span style={{ flex: 1, textAlign: "left" }}>Align with Maxine</span>
+          {openCount > 0 && <span style={S.countBadge}>{openCount}</span>}
+        </button>
+
+        <div style={S.listLabel}>WORK STREAMS</div>
+
+        <div style={S.projectList}>
+          {data.projects.length === 0 && !loading && (
+            <p style={{ color: "var(--muted)", fontSize: 13.5, padding: "8px 4px", lineHeight: 1.5 }}>
+              Aún no hay nada. Crea tu primer work stream.
+            </p>
+          )}
+          {data.projects.map((p) => {
+            const active = view === "project" && p.id === selectedId;
+            return (
+              <button
+                key={p.id}
+                onClick={() => openProject(p.id)}
+                style={{ ...S.projItem, ...(active ? S.projItemActive : null) }}
+              >
+                <span style={{ ...S.dot, background: p.accent }} />
+                <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {p.name}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        <div style={S.dataRow}>
+          <button style={S.dataBtn} onClick={exportData}>
+            <Download size={14} /> Export
+          </button>
+          <button style={S.dataBtn} onClick={() => fileInputRef.current?.click()}>
+            <Upload size={14} /> Import
+          </button>
+          <input
+            ref={fileInputRef} type="file" accept="application/json,.json"
+            style={{ display: "none" }}
+            onChange={(e) => { importData(e.target.files?.[0]); e.target.value = ""; }}
+          />
+        </div>
+
+        <div style={S.syncRow}>
+          <SyncDot state={syncState} />
+          <span style={{ fontSize: 11.5, color: "var(--muted)" }}>
+            {syncState === "error" ? "Error al guardar" : syncState === "saving" ? "Guardando…" : "Guardado"}
+          </span>
+        </div>
+      </aside>
+
+      {/* MAIN */}
+      <main style={S.main} className="pt-main">
+        {loading ? (
+          <div style={S.empty}><p style={{ color: "var(--muted)" }}>Cargando…</p></div>
+        ) : view === "search" ? (
+          <SearchView
+            projects={data.projects}
+            query={query}
+            onOpen={(pid, section) => openProject(pid, section)}
+          />
+        ) : view === "home" ? (
+          <HomeView
+            projects={data.projects}
+            onOpen={(pid) => openProject(pid)}
+            onCreate={() => setCreating(true)}
+          />
+        ) : view === "align" ? (
+          <AlignView
+            points={alignedPoints}
+            agenda={data.alignNotes || ""}
+            onAgenda={(v) => setData((d) => ({ ...d, alignNotes: v }))}
+            onToggleDone={(pt) => setItemAlign(pt.projectId, pt.section, pt.itemId, "alignDone", !pt.done)}
+            onUnalign={(pt) => setItemAlign(pt.projectId, pt.section, pt.itemId, "aligned", false)}
+            onOpenProject={(pid) => openProject(pid)}
+          />
+        ) : !project ? (
+          <EmptyState onCreate={() => setCreating(true)} />
+        ) : (
+          <ProjectView
+            key={project.id}
+            project={project}
+            focus={focus}
+            patch={(patch) => patchProject(project.id, patch)}
+            onDelete={() => deleteProject(project.id)}
+          />
+        )}
+      </main>
+
+      {creating && (
+        <CreateModal onClose={() => setCreating(false)} onCreate={addProject} />
+      )}
+
+      {toast && <Toast key={toast.id} msg={toast.msg} />}
+    </div>
+    </ToastContext.Provider>
+  );
+}
+
+/* ----------------------------- pieces ----------------------------- */
+
+function SyncDot({ state }) {
+  const color = state === "error" ? "#c0392b" : state === "saving" ? "#b08a2f" : "#6f7a52";
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center", color }}>
+      {state === "error" ? <CloudOff size={15} /> : <Cloud size={15} />}
+    </span>
+  );
+}
+
+function Toast({ msg }) {
+  return (
+    <div style={S.toast} className="pt-toast">
+      <span style={S.toastIcon}><Flag size={14} fill="currentColor" /></span>
+      {msg}
+    </div>
+  );
+}
+
+function EmptyState({ onCreate }) {
+  return (
+    <div style={S.empty}>
+      <div style={S.emptyArt}><FolderOpen size={30} /></div>
+      <h2 style={{ fontFamily: "Fraunces, serif", fontSize: 28, margin: "18px 0 6px", letterSpacing: "-.01em" }}>
+        Tu espacio está vacío
+      </h2>
+      <p style={{ color: "var(--muted)", maxWidth: 380, lineHeight: 1.6, marginBottom: 22 }}>
+        Crea tu primer <b>work stream</b> — un proyecto grande o un tema pequeño que quieras seguir —
+        y elige qué secciones incluir.
+      </p>
+      <button style={S.bigBtn} onClick={onCreate}><Plus size={17} /> Crear el primero</button>
+    </div>
+  );
+}
+
+function CreateModal({ onClose, onCreate }) {
+  const [name, setName] = useState("");
+  const [sel, setSel] = useState({ tasks: true, progress: true, notes: true, nextSteps: true });
+  const toggle = (key) => setSel((s) => ({ ...s, [key]: !s[key] }));
+  const submit = () => onCreate(name, sel);
+  return (
+    <div style={S.modalWrap} onClick={onClose}>
+      <div style={S.modal} onClick={(e) => e.stopPropagation()}>
+        <div style={{ display: "flex", alignItems: "center", marginBottom: 18 }}>
+          <h3 style={{ fontFamily: "Fraunces, serif", fontSize: 22, margin: 0 }}>Nuevo work stream</h3>
+          <button style={{ ...S.iconBtn, marginLeft: "auto" }} onClick={onClose}><X size={18} /></button>
+        </div>
+
+        <label style={S.fieldLabel}>Nombre</label>
+        <input
+          autoFocus
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && submit()}
+          placeholder="p. ej. LMS, Rediseño web, Cambiar de banco…"
+          style={S.input}
+        />
+
+        <label style={{ ...S.fieldLabel, marginTop: 18 }}>Secciones a incluir</label>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+          {SECTIONS.map((s) => {
+            const on = !!sel[s.key];
+            const Icon = s.icon;
+            return (
+              <button key={s.key} onClick={() => toggle(s.key)}
+                style={{ ...S.chip, ...(on ? { ...S.chipOn, borderColor: "var(--ink)", color: "var(--ink)" } : null) }}>
+                <Icon size={14} /> {s.label}{on && <Check size={13} style={{ marginLeft: 2 }} />}
+              </button>
+            );
+          })}
+        </div>
+        <p style={{ fontSize: 12, color: "var(--muted)", marginTop: 12, lineHeight: 1.5 }}>
+          Luego siempre podrás añadir o quitar secciones desde el botón <b>Secciones</b>.
+        </p>
+
+        <button style={{ ...S.bigBtn, width: "100%", marginTop: 20 }} onClick={submit}>
+          Crear
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function ProjectView({ project, patch, onDelete, focus }) {
+  const [editingName, setEditingName] = useState(false);
+  const [nameDraft, setNameDraft] = useState(project.name);
+  const [showSections, setShowSections] = useState(false);
+  const [flash, setFlash] = useState(null);
+
+  const toggleSection = (key) =>
+    patch((p) => ({ sections: { ...p.sections, [key]: !p.sections[key] } }));
+
+  const saveName = () => {
+    patch({ name: nameDraft.trim() || "Sin título" });
+    setEditingName(false);
+  };
+
+  const activeSections = SECTIONS.filter((s) => project.sections[s.key]);
+
+  // Al llegar desde una búsqueda: desplazar a la sección y resaltarla
+  useEffect(() => {
+    if (!focus?.key) return;
+    const el = document.getElementById("sec-" + focus.key);
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      setFlash(focus.key);
+      const t = setTimeout(() => setFlash(null), 1700);
+      return () => clearTimeout(t);
+    }
+  }, [focus]);
+
+  return (
+    <div style={S.projectView} className="pt-fadein">
+      {/* header */}
+      <div style={S.projHeader}>
+        <span style={{ ...S.dot, background: project.accent, width: 12, height: 12 }} />
+        {editingName ? (
+          <input
+            autoFocus value={nameDraft}
+            onChange={(e) => setNameDraft(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") saveName(); if (e.key === "Escape") setEditingName(false); }}
+            onBlur={saveName}
+            style={{ ...S.input, fontFamily: "Fraunces, serif", fontSize: 26, fontWeight: 600, padding: "2px 8px", maxWidth: 460 }}
+          />
+        ) : (
+          <h1
+            style={S.projTitle}
+            onClick={() => { setNameDraft(project.name); setEditingName(true); }}
+            title="Clic para renombrar"
+          >
+            {project.name}
+            <Pencil size={15} style={{ marginLeft: 10, opacity: 0.35, verticalAlign: "middle" }} />
+          </h1>
+        )}
+
+        <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
+          <button style={S.ghostBtn} onClick={() => setShowSections((v) => !v)}>
+            <SlidersHorizontal size={15} /> Secciones
+          </button>
+          <button
+            style={{ ...S.ghostBtn, color: "#c0392b" }}
+            onClick={() => { if (confirm(`¿Eliminar "${project.name}"? No se puede deshacer.`)) onDelete(); }}
+          >
+            <Trash2 size={15} />
+          </button>
+        </div>
+      </div>
+
+      {/* section toggles */}
+      {showSections && (
+        <div style={S.sectionToggles} className="pt-fadein">
+          {SECTIONS.map((s) => {
+            const on = project.sections[s.key];
+            const Icon = s.icon;
+            return (
+              <button
+                key={s.key}
+                onClick={() => toggleSection(s.key)}
+                style={{ ...S.chip, ...(on ? { ...S.chipOn, borderColor: project.accent, color: project.accent } : null) }}
+              >
+                <Icon size={14} /> {s.label}
+                {on && <Check size={13} style={{ marginLeft: 2 }} />}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* sections */}
+      {activeSections.length === 0 ? (
+        <div style={{ ...S.card, textAlign: "center", color: "var(--muted)" }}>
+          No hay secciones activas. Pulsa <b>Secciones</b> para activar alguna.
+        </div>
+      ) : (
+        <div style={S.sectionGrid}>
+          {activeSections.map((s) => (
+            <SectionCard key={s.key} meta={s} project={project} patch={patch} flash={flash === s.key} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SectionCard({ meta, project, patch, flash }) {
+  const Icon = meta.icon;
+  const bodies = {
+    tasks: <TasksBody project={project} patch={patch} />,
+    progress: <ProgressBody project={project} patch={patch} />,
+    meetings: <MeetingsBody project={project} patch={patch} />,
+    notes: <NotesBody project={project} patch={patch} />,
+    links: <LinksBody project={project} patch={patch} />,
+    decisions: <DecisionsBody project={project} patch={patch} />,
+    nextSteps: <NextStepsBody project={project} patch={patch} />,
+    risks: <RisksBody project={project} patch={patch} />,
+  };
+  return (
+    <section id={"sec-" + meta.key} style={S.card} className={flash ? "pt-flash" : undefined}>
+      <div style={S.cardHead}>
+        <span style={{ display: "inline-flex", color: project.accent }}><Icon size={16} /></span>
+        <h3 style={S.cardTitle}>{meta.label}</h3>
+      </div>
+      {bodies[meta.key]}
+    </section>
+  );
+}
+
+/* -------- inline add input -------- */
+function AddRow({ placeholder, onAdd, accent }) {
+  const [v, setV] = useState("");
+  const submit = () => { if (v.trim()) { onAdd(v.trim()); setV(""); } };
+  return (
+    <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+      <input
+        value={v} onChange={(e) => setV(e.target.value)}
+        onKeyDown={(e) => e.key === "Enter" && submit()}
+        placeholder={placeholder} style={S.inputSm}
+      />
+      <button style={{ ...S.addMini, background: accent }} onClick={submit}><Plus size={16} /></button>
+    </div>
+  );
+}
+
+/* -------- urgency / level badge -------- */
+function LevelBadge({ level, onClick, title }) {
+  const lv = LEVELS[level] || LEVELS.M;
+  return (
+    <button
+      onClick={onClick}
+      title={title || "Cambiar urgencia (H/M/L)"}
+      style={{ ...S.levelBadge, color: lv.color, background: lv.bg, cursor: onClick ? "pointer" : "default" }}
+    >
+      {lv.label}
+    </button>
+  );
+}
+
+/* -------- align-with-Maxine flag toggle -------- */
+function AlignToggle({ active, onClick }) {
+  const notify = useContext(ToastContext);
+  const handle = () => {
+    onClick();
+    if (!active && notify) notify("Añadido a Align with Maxine");
+  };
+  return (
+    <button
+      onClick={handle}
+      title={active ? "Quitar de Align with Maxine" : "Marcar para alinear con Maxine"}
+      style={{ ...S.alignToggle, ...(active ? S.alignToggleOn : null) }}
+    >
+      <Flag size={13} fill={active ? "currentColor" : "none"} />
+    </button>
+  );
+}
+function TasksBody({ project, patch }) {
+  const tasks = project.tasks;
+  const [draft, setDraft] = useState("");
+  const [draftLevel, setDraftLevel] = useState("M");
+  const [draftDue, setDraftDue] = useState("");
+
+  const add = () => {
+    if (!draft.trim()) return;
+    patch((p) => ({ tasks: [...p.tasks, { id: uid(), text: draft.trim(), done: false, level: draftLevel, due: draftDue || "" }] }));
+    setDraft(""); setDraftDue("");
+  };
+  const toggle = (id) => patch((p) => ({ tasks: p.tasks.map((t) => t.id === id ? { ...t, done: !t.done } : t) }));
+  const setLevel = (id) => patch((p) => ({ tasks: p.tasks.map((t) => t.id === id ? { ...t, level: cycleLevel(t.level || "M") } : t) }));
+  const setDue = (id, due) => patch((p) => ({ tasks: p.tasks.map((t) => t.id === id ? { ...t, due } : t) }));
+  const toggleAlign = (id) => patch((p) => ({ tasks: p.tasks.map((t) => t.id === id ? { ...t, aligned: !t.aligned } : t) }));
+  const del = (id) => patch((p) => ({ tasks: p.tasks.filter((t) => t.id !== id) }));
+  const done = tasks.filter((t) => t.done).length;
+
+  return (
+    <div>
+      {tasks.length > 0 && (
+        <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 8 }}>{done}/{tasks.length} completadas</div>
+      )}
+      <ul style={S.list}>
+        {tasks.map((t) => {
+          const d = t.done ? null : daysUntil(t.due);
+          const urgent = d !== null && d <= 3; // 3 días o menos, incluye vencidas
+          return (
+            <li key={t.id} style={{ ...S.listItem, ...(urgent ? S.taskUrgent : null) }}>
+              <button style={S.checkBtn} onClick={() => toggle(t.id)}>
+                {t.done ? <CheckCircle2 size={18} color={project.accent} /> : <Circle size={18} color={urgent ? "#c0392b" : "var(--line-strong)"} />}
+              </button>
+              <LevelBadge level={t.level || "M"} onClick={() => setLevel(t.id)} />
+              <span style={{ flex: 1, textDecoration: t.done ? "line-through" : "none", color: t.done ? "var(--muted)" : urgent ? "#a52a1a" : "inherit", fontWeight: urgent ? 600 : 400 }}>
+                {t.text}
+              </span>
+              <DueControl value={t.due} days={d} urgent={urgent} done={t.done} onChange={(v) => setDue(t.id, v)} />
+              <AlignToggle active={t.aligned} onClick={() => toggleAlign(t.id)} />
+              <button style={S.delBtn} onClick={() => del(t.id)}><X size={15} /></button>
+            </li>
+          );
+        })}
+      </ul>
+      <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
+        <LevelBadge level={draftLevel} onClick={() => setDraftLevel(cycleLevel(draftLevel))} title="Urgencia de la nueva tarea" />
+        <input value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => e.key === "Enter" && add()}
+          placeholder="Añadir tarea…" style={{ ...S.inputSm, minWidth: 120 }} />
+        <input type="date" value={draftDue} onChange={(e) => setDraftDue(e.target.value)} title="Due date (opcional)"
+          style={{ ...S.inputSm, flex: "0 0 auto", width: 138 }} />
+        <button style={{ ...S.addMini, background: project.accent }} onClick={add}><Plus size={16} /></button>
+      </div>
+    </div>
+  );
+}
+
+/* -------- due date control for a task -------- */
+function DueControl({ value, days, urgent, done, onChange }) {
+  const [editing, setEditing] = useState(false);
+  if (editing) {
+    return (
+      <input
+        type="date" autoFocus value={value || ""}
+        onChange={(e) => onChange(e.target.value)}
+        onBlur={() => setEditing(false)}
+        style={{ ...S.inputSm, flex: "0 0 auto", width: 138, padding: "4px 6px", fontSize: 12.5 }}
+      />
+    );
+  }
+  if (!value) {
+    return (
+      <button style={S.dueAdd} onClick={() => setEditing(true)} title="Añadir due date">
+        <CalendarDays size={13} />
+      </button>
+    );
+  }
+  let label;
+  if (done) label = value.slice(5);
+  else if (days < 0) label = `${Math.abs(days)}d tarde`;
+  else if (days === 0) label = "hoy";
+  else if (days === 1) label = "mañana";
+  else label = `${days}d`;
+  return (
+    <button
+      onClick={() => setEditing(true)}
+      title={`Due: ${value}`}
+      style={{ ...S.dueTag, ...(urgent ? S.dueTagUrgent : null) }}
+    >
+      <CalendarDays size={12} /> {label}
+    </button>
+  );
+}
+
+/* -------- Progress -------- */
+function ProgressBody({ project, patch }) {
+  const pr = project.progress;
+  const setPercent = (n) => patch((p) => ({ progress: { ...p.progress, percent: n } }));
+  const setStatus = (s) => patch((p) => ({ progress: { ...p.progress, status: s } }));
+  const addLog = (text) => patch((p) => ({ progress: { ...p.progress, log: [{ id: uid(), date: today(), text }, ...p.progress.log] } }));
+  const delLog = (id) => patch((p) => ({ progress: { ...p.progress, log: p.progress.log.filter((l) => l.id !== id) } }));
+  const alignLog = (id) => patch((p) => ({ progress: { ...p.progress, log: p.progress.log.map((l) => l.id === id ? { ...l, aligned: !l.aligned } : l) } }));
+  const alignSummary = () => patch((p) => ({ progressAlign: { ...(p.progressAlign || {}), aligned: !p.progressAlign?.aligned } }));
+  return (
+    <div>
+      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8 }}>
+        <span style={{ fontFamily: "Fraunces, serif", fontSize: 30, fontWeight: 600, color: project.accent }}>{pr.percent}%</span>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <AlignToggle active={project.progressAlign?.aligned} onClick={alignSummary} />
+          <select value={pr.status} onChange={(e) => setStatus(e.target.value)} style={S.select}>
+            {STATUSES.map((s) => <option key={s}>{s}</option>)}
+          </select>
+        </div>
+      </div>
+      <input type="range" min="0" max="100" step="5" value={pr.percent}
+        onChange={(e) => setPercent(Number(e.target.value))}
+        style={{ width: "100%", marginTop: 12, accentColor: project.accent }} />
+      <div style={{ fontSize: 12, color: "var(--muted)", margin: "14px 0 6px", fontWeight: 600, letterSpacing: ".03em" }}>REGISTRO</div>
+      <ul style={S.list}>
+        {pr.log.map((l) => (
+          <li key={l.id} style={S.listItem}>
+            <span style={S.dateTag}>{l.date.slice(5)}</span>
+            <span style={{ flex: 1 }}>{l.text}</span>
+            <AlignToggle active={l.aligned} onClick={() => alignLog(l.id)} />
+            <button style={S.delBtn} onClick={() => delLog(l.id)}><X size={15} /></button>
+          </li>
+        ))}
+      </ul>
+      <AddRow placeholder="Qué avanzó hoy…" onAdd={addLog} accent={project.accent} />
+    </div>
+  );
+}
+
+/* -------- Meetings -------- */
+function MeetingsBody({ project, patch }) {
+  const [date, setDate] = useState(today());
+  const [title, setTitle] = useState("");
+  const [person, setPerson] = useState("");
+  const add = () => {
+    if (!title.trim()) return;
+    patch((p) => ({ meetings: [{ id: uid(), date, title: title.trim(), person: person.trim(), notes: "" }, ...p.meetings] }));
+    setTitle(""); setPerson("");
+  };
+  const upd = (id, field, val) => patch((p) => ({ meetings: p.meetings.map((m) => m.id === id ? { ...m, [field]: val } : m) }));
+  const del = (id) => patch((p) => ({ meetings: p.meetings.filter((m) => m.id !== id) }));
+  const alignM = (id) => patch((p) => ({ meetings: p.meetings.map((m) => m.id === id ? { ...m, aligned: !m.aligned } : m) }));
+  return (
+    <div>
+      <ul style={{ ...S.list, gap: 10 }}>
+        {project.meetings.map((m) => (
+          <li key={m.id} style={S.meetingItem}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={S.dateTag}>{m.date.slice(5)}</span>
+              <input value={m.title} onChange={(e) => upd(m.id, "title", e.target.value)} style={{ ...S.inlineEdit, fontWeight: 600, flex: 1 }} />
+              <AlignToggle active={m.aligned} onClick={() => alignM(m.id)} />
+              <button style={S.delBtn} onClick={() => del(m.id)}><X size={15} /></button>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 4 }}>
+              <User size={13} color="var(--muted)" />
+              <input value={m.person || ""} onChange={(e) => upd(m.id, "person", e.target.value)}
+                placeholder="Persona principal…" style={{ ...S.inlineEdit, fontSize: 13, color: "var(--muted)", flex: 1 }} />
+            </div>
+            <textarea value={m.notes} onChange={(e) => upd(m.id, "notes", e.target.value)}
+              placeholder="Notas de la reunión…" style={S.miniArea} rows={2} />
+          </li>
+        ))}
+      </ul>
+      <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+        <input type="date" value={date} onChange={(e) => setDate(e.target.value)} style={{ ...S.inputSm, flex: "0 0 auto", width: 138 }} />
+        <input value={title} onChange={(e) => setTitle(e.target.value)} onKeyDown={(e) => e.key === "Enter" && add()}
+          placeholder="Título de la reunión…" style={S.inputSm} />
+      </div>
+      <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+        <input value={person} onChange={(e) => setPerson(e.target.value)} onKeyDown={(e) => e.key === "Enter" && add()}
+          placeholder="Persona principal (con quién)…" style={S.inputSm} />
+        <button style={{ ...S.addMini, background: project.accent }} onClick={add}><Plus size={16} /></button>
+      </div>
+    </div>
+  );
+}
+
+/* -------- Notes -------- */
+function NotesBody({ project, patch }) {
+  const alignNotes = () => patch((p) => ({ notesAlign: { ...(p.notesAlign || {}), aligned: !p.notesAlign?.aligned } }));
+  return (
+    <div>
+      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 6 }}>
+        <AlignToggle active={project.notesAlign?.aligned} onClick={alignNotes} />
+      </div>
+      <textarea
+        value={project.notes}
+        onChange={(e) => patch({ notes: e.target.value })}
+        placeholder="Escribe lo que quieras recordar…"
+        style={S.notesArea} rows={6}
+      />
+    </div>
+  );
+}
+
+/* -------- Links -------- */
+function LinksBody({ project, patch }) {
+  const [label, setLabel] = useState("");
+  const [url, setUrl] = useState("");
+  const add = () => {
+    if (!url.trim()) return;
+    let u = url.trim();
+    if (!/^https?:\/\//i.test(u)) u = "https://" + u;
+    patch((p) => ({ links: [...p.links, { id: uid(), label: label.trim() || u, url: u }] }));
+    setLabel(""); setUrl("");
+  };
+  const del = (id) => patch((p) => ({ links: p.links.filter((l) => l.id !== id) }));
+  const alignL = (id) => patch((p) => ({ links: p.links.map((l) => l.id === id ? { ...l, aligned: !l.aligned } : l) }));
+  return (
+    <div>
+      <ul style={S.list}>
+        {project.links.map((l) => (
+          <li key={l.id} style={S.listItem}>
+            <Link2 size={15} color="var(--muted)" />
+            <a href={l.url} target="_blank" rel="noreferrer" style={{ flex: 1, color: project.accent, textDecoration: "none", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {l.label}
+            </a>
+            <ExternalLink size={13} color="var(--muted)" />
+            <AlignToggle active={l.aligned} onClick={() => alignL(l.id)} />
+            <button style={S.delBtn} onClick={() => del(l.id)}><X size={15} /></button>
+          </li>
+        ))}
+      </ul>
+      <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+        <input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Nombre" style={{ ...S.inputSm, flex: "0 0 38%" }} />
+        <input value={url} onChange={(e) => setUrl(e.target.value)} onKeyDown={(e) => e.key === "Enter" && add()} placeholder="URL" style={S.inputSm} />
+        <button style={{ ...S.addMini, background: project.accent }} onClick={add}><Plus size={16} /></button>
+      </div>
+    </div>
+  );
+}
+
+/* -------- Decisions -------- */
+function DecisionsBody({ project, patch }) {
+  const [decision, setDecision] = useState("");
+  const [rationale, setRationale] = useState("");
+  const add = () => {
+    if (!decision.trim()) return;
+    patch((p) => ({ decisions: [{ id: uid(), date: today(), decision: decision.trim(), rationale: rationale.trim() }, ...p.decisions] }));
+    setDecision(""); setRationale("");
+  };
+  const del = (id) => patch((p) => ({ decisions: p.decisions.filter((d) => d.id !== id) }));
+  const alignD = (id) => patch((p) => ({ decisions: p.decisions.map((d) => d.id === id ? { ...d, aligned: !d.aligned } : d) }));
+  return (
+    <div>
+      <ul style={{ ...S.list, gap: 10 }}>
+        {project.decisions.map((d) => (
+          <li key={d.id} style={S.decisionItem}>
+            <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
+              <Lightbulb size={15} color={project.accent} style={{ marginTop: 2 }} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: 600, overflowWrap: "anywhere" }}>{d.decision}</div>
+                {d.rationale && <div style={{ fontSize: 13, color: "var(--muted)", marginTop: 2, lineHeight: 1.45, overflowWrap: "anywhere" }}>{d.rationale}</div>}
+                <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 4 }}>{d.date}</div>
+              </div>
+              <AlignToggle active={d.aligned} onClick={() => alignD(d.id)} />
+              <button style={S.delBtn} onClick={() => del(d.id)}><X size={15} /></button>
+            </div>
+          </li>
+        ))}
+      </ul>
+      <input value={decision} onChange={(e) => setDecision(e.target.value)} placeholder="Decisión tomada…" style={{ ...S.inputSm, marginTop: 10 }} />
+      <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+        <input value={rationale} onChange={(e) => setRationale(e.target.value)} onKeyDown={(e) => e.key === "Enter" && add()} placeholder="Por qué (opcional)…" style={S.inputSm} />
+        <button style={{ ...S.addMini, background: project.accent }} onClick={add}><Plus size={16} /></button>
+      </div>
+    </div>
+  );
+}
+
+/* -------- Next steps -------- */
+function NextStepsBody({ project, patch }) {
+  const items = project.nextSteps;
+  const add = (text) => patch((p) => ({ nextSteps: [...p.nextSteps, { id: uid(), text, done: false }] }));
+  const toggle = (id) => patch((p) => ({ nextSteps: p.nextSteps.map((t) => t.id === id ? { ...t, done: !t.done } : t) }));
+  const del = (id) => patch((p) => ({ nextSteps: p.nextSteps.filter((t) => t.id !== id) }));
+  const alignN = (id) => patch((p) => ({ nextSteps: p.nextSteps.map((t) => t.id === id ? { ...t, aligned: !t.aligned } : t) }));
+  return (
+    <div>
+      <ul style={S.list}>
+        {items.map((t) => (
+          <li key={t.id} style={S.listItem}>
+            <button style={S.checkBtn} onClick={() => toggle(t.id)}>
+              {t.done ? <CheckCircle2 size={18} color={project.accent} /> : <ArrowRight size={17} color="var(--line-strong)" />}
+            </button>
+            <span style={{ flex: 1, textDecoration: t.done ? "line-through" : "none", color: t.done ? "var(--muted)" : "inherit" }}>{t.text}</span>
+            <AlignToggle active={t.aligned} onClick={() => alignN(t.id)} />
+            <button style={S.delBtn} onClick={() => del(t.id)}><X size={15} /></button>
+          </li>
+        ))}
+      </ul>
+      <AddRow placeholder="Siguiente paso…" onAdd={add} accent={project.accent} />
+    </div>
+  );
+}
+
+/* -------- Risks -------- */
+function RisksBody({ project, patch }) {
+  const risks = project.risks;
+  const [text, setText] = useState("");
+  const [level, setLevel] = useState("M");
+  const [mitigation, setMitigation] = useState("");
+
+  const add = () => {
+    if (!text.trim()) return;
+    patch((p) => ({ risks: [{ id: uid(), text: text.trim(), level, mitigation: mitigation.trim(), resolved: false }, ...p.risks] }));
+    setText(""); setMitigation(""); setLevel("M");
+  };
+  const cycle = (id) => patch((p) => ({ risks: p.risks.map((r) => r.id === id ? { ...r, level: cycleLevel(r.level || "M") } : r) }));
+  const toggle = (id) => patch((p) => ({ risks: p.risks.map((r) => r.id === id ? { ...r, resolved: !r.resolved } : r) }));
+  const del = (id) => patch((p) => ({ risks: p.risks.filter((r) => r.id !== id) }));
+  const alignR = (id) => patch((p) => ({ risks: p.risks.map((r) => r.id === id ? { ...r, aligned: !r.aligned } : r) }));
+
+  // ordena por severidad (H > M > L), los resueltos al final
+  const order = { H: 0, M: 1, L: 2 };
+  const sorted = [...risks].sort((a, b) =>
+    (a.resolved - b.resolved) || (order[a.level] - order[b.level])
+  );
+
+  return (
+    <div>
+      <ul style={{ ...S.list, gap: 8 }}>
+        {sorted.map((r) => (
+          <li key={r.id} style={{ ...S.riskItem, opacity: r.resolved ? 0.55 : 1 }}>
+            <div style={{ display: "flex", alignItems: "flex-start", gap: 9 }}>
+              <LevelBadge level={r.level || "M"} onClick={() => cycle(r.id)} title="Cambiar impacto (H/M/L)" />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: 600, textDecoration: r.resolved ? "line-through" : "none", overflowWrap: "anywhere" }}>{r.text}</div>
+                {r.mitigation && (
+                  <div style={{ fontSize: 13, color: "var(--muted)", marginTop: 3, lineHeight: 1.45, overflowWrap: "anywhere" }}>
+                    <span style={{ fontWeight: 600 }}>Mitigación: </span>{r.mitigation}
+                  </div>
+                )}
+              </div>
+              <button style={S.checkBtn} onClick={() => toggle(r.id)} title={r.resolved ? "Reabrir" : "Marcar mitigado"}>
+                {r.resolved ? <CheckCircle2 size={18} color={project.accent} /> : <Circle size={18} color="var(--line-strong)" />}
+              </button>
+              <AlignToggle active={r.aligned} onClick={() => alignR(r.id)} />
+              <button style={S.delBtn} onClick={() => del(r.id)}><X size={15} /></button>
+            </div>
+          </li>
+        ))}
+      </ul>
+      <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+        <LevelBadge level={level} onClick={() => setLevel(cycleLevel(level))} title="Impacto del riesgo" />
+        <input value={text} onChange={(e) => setText(e.target.value)} placeholder="Riesgo…" style={S.inputSm} />
+      </div>
+      <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+        <input value={mitigation} onChange={(e) => setMitigation(e.target.value)} onKeyDown={(e) => e.key === "Enter" && add()}
+          placeholder="Mitigación (opcional)…" style={S.inputSm} />
+        <button style={{ ...S.addMini, background: project.accent }} onClick={add}><Plus size={16} /></button>
+      </div>
+    </div>
+  );
+}
+
+/* ============================ Búsqueda global ============================ */
+const SEARCH_KIND = {
+  name: "Work stream", tasks: "Current Task", nextSteps: "Future Task",
+  meetings: "Meeting", notes: "Notes", links: "Link",
+  decisions: "Decision", risks: "Risk", progress: "Progress",
+};
+const SEARCH_ICON = {
+  name: FolderOpen, tasks: ListChecks, nextSteps: ArrowRight, meetings: CalendarDays,
+  notes: StickyNote, links: Link2, decisions: Lightbulb, risks: AlertTriangle, progress: BarChart3,
+};
+
+function snippet(text, q, len = 110) {
+  if (!text) return "";
+  const i = text.toLowerCase().indexOf(q.toLowerCase());
+  if (i < 0 || text.length <= len) return text;
+  const start = Math.max(0, i - 30);
+  const end = Math.min(text.length, start + len);
+  return (start > 0 ? "…" : "") + text.slice(start, end).trim() + (end < text.length ? "…" : "");
+}
+
+function Highlight({ text, q }) {
+  if (!q) return <>{text}</>;
+  const lower = text.toLowerCase(), ql = q.toLowerCase();
+  const parts = []; let i = 0, idx;
+  while ((idx = lower.indexOf(ql, i)) !== -1) {
+    if (idx > i) parts.push(text.slice(i, idx));
+    parts.push(<mark key={idx} style={{ background: "rgba(176,74,47,.22)", color: "inherit", borderRadius: 3, padding: "0 1px" }}>{text.slice(idx, idx + q.length)}</mark>);
+    i = idx + q.length;
+  }
+  if (i < text.length) parts.push(text.slice(i));
+  return <>{parts}</>;
+}
+
+function searchProjects(projects, q) {
+  const ql = q.toLowerCase();
+  const hit = (s) => s && s.toLowerCase().includes(ql);
+  const out = [];
+  for (const p of projects) {
+    const base = { projectId: p.id, projectName: p.name, accent: p.accent };
+    if (hit(p.name)) out.push({ ...base, section: "name", text: p.name });
+    (p.tasks || []).forEach((t) => hit(t.text) && out.push({ ...base, section: "tasks", text: t.text }));
+    (p.nextSteps || []).forEach((t) => hit(t.text) && out.push({ ...base, section: "nextSteps", text: t.text }));
+    (p.meetings || []).forEach((m) => {
+      if (hit(m.title) || hit(m.person) || hit(m.notes))
+        out.push({ ...base, section: "meetings", text: m.title + (m.person ? ` · con ${m.person}` : ""), extra: hit(m.notes) ? m.notes : "" });
+    });
+    if (hit(p.notes)) out.push({ ...base, section: "notes", text: p.notes });
+    (p.links || []).forEach((l) => (hit(l.label) || hit(l.url)) && out.push({ ...base, section: "links", text: l.label, extra: l.url }));
+    (p.decisions || []).forEach((d) => (hit(d.decision) || hit(d.rationale)) && out.push({ ...base, section: "decisions", text: d.decision, extra: hit(d.rationale) ? d.rationale : "" }));
+    (p.risks || []).forEach((r) => (hit(r.text) || hit(r.mitigation)) && out.push({ ...base, section: "risks", text: r.text, extra: hit(r.mitigation) ? r.mitigation : "" }));
+    (p.progress?.log || []).forEach((l) => hit(l.text) && out.push({ ...base, section: "progress", text: l.text }));
+  }
+  return out;
+}
+
+function SearchView({ projects, query, onOpen }) {
+  const q = query.trim();
+  const results = q ? searchProjects(projects, q) : [];
+
+  // agrupar por proyecto
+  const groups = [];
+  const byId = {};
+  for (const r of results) {
+    if (!byId[r.projectId]) { byId[r.projectId] = { ...r, items: [] }; groups.push(byId[r.projectId]); }
+    byId[r.projectId].items.push(r);
+  }
+
+  return (
+    <div style={{ maxWidth: 820, margin: "0 auto" }} className="pt-fadein">
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 6 }}>
+        <span style={{ ...S.maxineHeadIcon, background: "rgba(138,125,108,.16)", color: "var(--muted)" }}><Search size={20} /></span>
+        <h1 style={{ fontFamily: "Fraunces, serif", fontSize: 28, fontWeight: 600, margin: 0, letterSpacing: "-.015em" }}>Buscar</h1>
+      </div>
+      <p style={{ color: "var(--muted)", marginBottom: 22 }}>
+        {!q ? "Escribe en el buscador de la izquierda." : `${results.length} resultado${results.length === 1 ? "" : "s"} para “${q}”.`}
+      </p>
+
+      {q && results.length === 0 && (
+        <div style={{ ...S.empty, paddingTop: 40 }}>
+          <p style={{ color: "var(--muted)" }}>Nada coincide con “{q}”.</p>
+        </div>
+      )}
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+        {groups.map((g) => (
+          <div key={g.projectId}>
+            <button onClick={() => onOpen(g.projectId)} style={S.alignGroupHead}>
+              <span style={{ ...S.dot, background: g.accent }} />
+              {g.projectName}
+              <span style={{ fontSize: 12, color: "var(--muted)", fontWeight: 400 }}>· {g.items.length}</span>
+            </button>
+            <div style={S.card}>
+              {g.items.map((r, i) => {
+                const Icon = SEARCH_ICON[r.section];
+                return (
+                  <button key={i} style={{ ...S.homeRow, alignItems: "flex-start" }} className="pt-homerow" onClick={() => onOpen(r.projectId, r.section === "name" ? null : r.section)}>
+                    <span style={{ ...S.alignKind, marginTop: 2 }}><Icon size={12} /> {SEARCH_KIND[r.section]}</span>
+                    <span style={{ flex: 1, minWidth: 0, textAlign: "left" }}>
+                      <span style={{ display: "block", overflowWrap: "anywhere" }}>
+                        <Highlight text={snippet(r.text, q)} q={q} />
+                      </span>
+                      {r.extra && (
+                        <span style={{ display: "block", fontSize: 12.5, color: "var(--muted)", marginTop: 2, overflowWrap: "anywhere" }}>
+                          <Highlight text={snippet(r.extra, q)} q={q} />
+                        </span>
+                      )}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ============================ Home ============================ */
+function homeDayLabel(d) {
+  if (d < 0) return `${Math.abs(d)}d tarde`;
+  if (d === 0) return "hoy";
+  if (d === 1) return "mañana";
+  return `en ${d}d`;
+}
+
+function HomeView({ projects, onOpen, onCreate }) {
+  const urgentTasks = [], meetings = [], highRisks = [];
+  for (const p of projects) {
+    const base = { projectId: p.id, projectName: p.name, accent: p.accent };
+    for (const t of p.tasks || []) {
+      if (t.done || !t.due) continue;
+      const d = daysUntil(t.due);
+      if (d !== null && d <= 7) urgentTasks.push({ ...base, id: t.id, text: t.text, level: t.level, due: t.due, days: d });
+    }
+    for (const m of p.meetings || []) {
+      const d = daysUntil(m.date);
+      if (d !== null && d >= 0) meetings.push({ ...base, id: m.id, title: m.title, person: m.person, date: m.date, days: d });
+    }
+    for (const r of p.risks || []) {
+      if (!r.resolved && (r.level || "M") === "H") highRisks.push({ ...base, id: r.id, text: r.text, mitigation: r.mitigation });
+    }
+  }
+  urgentTasks.sort((a, b) => a.days - b.days);
+  meetings.sort((a, b) => a.days - b.days);
+
+  if (projects.length === 0) {
+    return (
+      <div style={S.empty}>
+        <div style={S.emptyArt}><HomeIcon size={28} /></div>
+        <h2 style={{ fontFamily: "Fraunces, serif", fontSize: 26, margin: "18px 0 6px" }}>Bienvenida</h2>
+        <p style={{ color: "var(--muted)", maxWidth: 360, lineHeight: 1.6, marginBottom: 22 }}>
+          Crea tu primer work stream y aquí verás de un vistazo lo urgente de todos: tareas, reuniones y riesgos.
+        </p>
+        <button style={S.bigBtn} onClick={onCreate}><Plus size={17} /> Crear work stream</button>
+      </div>
+    );
+  }
+
+  const StreamPill = ({ pt }) => (
+    <span style={S.streamPill}><span style={{ ...S.dot, background: pt.accent, width: 7, height: 7 }} />{pt.projectName}</span>
+  );
+
+  return (
+    <div style={{ maxWidth: 880, margin: "0 auto" }} className="pt-fadein">
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 6 }}>
+        <span style={{ ...S.maxineHeadIcon, background: "rgba(47,111,122,.14)", color: "#2f6f7a" }}><HomeIcon size={20} /></span>
+        <h1 style={{ fontFamily: "Fraunces, serif", fontSize: 30, fontWeight: 600, margin: 0, letterSpacing: "-.015em" }}>Home</h1>
+      </div>
+      <p style={{ color: "var(--muted)", marginBottom: 24, lineHeight: 1.55 }}>
+        {urgentTasks.length} tarea{urgentTasks.length === 1 ? "" : "s"} urgente{urgentTasks.length === 1 ? "" : "s"} · {meetings.length} próxima{meetings.length === 1 ? "" : "s"} reunión{meetings.length === 1 ? "" : "es"} · {highRisks.length} riesgo{highRisks.length === 1 ? "" : "s"} alto{highRisks.length === 1 ? "" : "s"}
+      </p>
+
+      <div style={S.homeGrid}>
+        {/* Tareas urgentes */}
+        <section style={S.card}>
+          <div style={S.cardHead}>
+            <span style={{ color: "#b3331f" }}><ListChecks size={16} /></span>
+            <h3 style={S.cardTitle}>Tareas urgentes</h3>
+            <span style={S.homeCount}>{urgentTasks.length}</span>
+          </div>
+          {urgentTasks.length === 0 ? (
+            <p style={S.homeEmpty}>Nada vencido ni para esta semana.</p>
+          ) : (
+            <div>
+              {urgentTasks.map((t) => {
+                const urgent = t.days <= 3;
+                return (
+                  <button key={t.projectId + t.id} style={S.homeRow} className="pt-homerow" onClick={() => onOpen(t.projectId)}>
+                    {t.level && <LevelBadgeInline level={t.level} />}
+                    <span style={{ flex: 1, textAlign: "left", minWidth: 0 }}>
+                      <span style={{ display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.text}</span>
+                      <StreamPill pt={t} />
+                    </span>
+                    <span style={{ ...S.dueTag, ...(urgent ? S.dueTagUrgent : null) }}>
+                      <CalendarDays size={12} /> {homeDayLabel(t.days)}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </section>
+
+        {/* Próximas reuniones */}
+        <section style={S.card}>
+          <div style={S.cardHead}>
+            <span style={{ color: "#2f6f7a" }}><CalendarClock size={16} /></span>
+            <h3 style={S.cardTitle}>Próximas reuniones</h3>
+            <span style={S.homeCount}>{meetings.length}</span>
+          </div>
+          {meetings.length === 0 ? (
+            <p style={S.homeEmpty}>No hay reuniones próximas.</p>
+          ) : (
+            <div>
+              {meetings.map((m) => (
+                <button key={m.projectId + m.id} style={S.homeRow} className="pt-homerow" onClick={() => onOpen(m.projectId)}>
+                  <span style={{ flex: 1, textAlign: "left", minWidth: 0 }}>
+                    <span style={{ display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontWeight: 600 }}>{m.title}</span>
+                    <span style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                      <StreamPill pt={m} />
+                      {m.person && <span style={{ fontSize: 12, color: "var(--muted)" }}>con {m.person}</span>}
+                    </span>
+                  </span>
+                  <span style={S.dueTag}><CalendarDays size={12} /> {homeDayLabel(m.days)}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </section>
+
+        {/* Riesgos altos abiertos */}
+        <section style={{ ...S.card, gridColumn: "1 / -1" }}>
+          <div style={S.cardHead}>
+            <span style={{ color: "#b3331f" }}><AlertTriangle size={16} /></span>
+            <h3 style={S.cardTitle}>Riesgos altos abiertos</h3>
+            <span style={S.homeCount}>{highRisks.length}</span>
+          </div>
+          {highRisks.length === 0 ? (
+            <p style={S.homeEmpty}>Sin riesgos altos abiertos.</p>
+          ) : (
+            <div>
+              {highRisks.map((r) => (
+                <button key={r.projectId + r.id} style={S.homeRow} className="pt-homerow" onClick={() => onOpen(r.projectId)}>
+                  <LevelBadgeInline level="H" />
+                  <span style={{ flex: 1, textAlign: "left", minWidth: 0 }}>
+                    <span style={{ display: "block" }}>{r.text}</span>
+                    <span style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginTop: 2 }}>
+                      <StreamPill pt={r} />
+                      {r.mitigation && <span style={{ fontSize: 12, color: "var(--muted)" }}>Mitigación: {r.mitigation}</span>}
+                    </span>
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+        </section>
+      </div>
+    </div>
+  );
+}
+
+/* ============================ Align with Maxine ============================ */
+function AlignView({ points, agenda, onAgenda, onToggleDone, onUnalign, onOpenProject }) {
+  // agrupar por proyecto conservando el orden de aparición
+  const groups = [];
+  const byId = {};
+  for (const pt of points) {
+    if (!byId[pt.projectId]) {
+      byId[pt.projectId] = { projectId: pt.projectId, projectName: pt.projectName, accent: pt.accent, items: [] };
+      groups.push(byId[pt.projectId]);
+    }
+    byId[pt.projectId].items.push(pt);
+  }
+  const total = points.length;
+  const done = points.filter((p) => p.done).length;
+  const openPoints = points.filter((p) => !p.done);
+  const [exportText, setExportText] = useState(null);
+
+  return (
+    <div style={{ maxWidth: 860, margin: "0 auto" }} className="pt-fadein">
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 6 }}>
+        <span style={S.maxineHeadIcon}><Users size={20} /></span>
+        <h1 style={{ fontFamily: "Fraunces, serif", fontSize: 30, fontWeight: 600, margin: 0, letterSpacing: "-.015em" }}>
+          Align with Maxine
+        </h1>
+        {openPoints.length > 0 && (
+          <button style={{ ...S.ghostBtn, marginLeft: "auto" }} onClick={() => setExportText(buildExport(groups, agenda))}>
+            <Copy size={15} /> Exportar puntos abiertos
+          </button>
+        )}
+      </div>
+      <p style={{ color: "var(--muted)", marginBottom: 22, lineHeight: 1.55 }}>
+        {total === 0
+          ? "Marca cualquier elemento con la bandera dentro de un work stream y aparecerá aquí, listo para tu próxima conversación con Maxine."
+          : `${total} ${total === 1 ? "punto" : "puntos"} para alinear · ${openPoints.length} abierto${openPoints.length === 1 ? "" : "s"} · ${done} tratado${done === 1 ? "" : "s"}.`}
+      </p>
+
+      {exportText !== null && <ExportModal text={exportText} onClose={() => setExportText(null)} />}
+
+      <div style={S.card}>
+        <div style={{ fontSize: 12, color: "var(--muted)", fontWeight: 600, letterSpacing: ".03em", marginBottom: 8 }}>AGENDA / NOTAS</div>
+        <textarea value={agenda} onChange={(e) => onAgenda(e.target.value)}
+          placeholder="Notas libres para la reunión: objetivos, orden del día, preguntas…"
+          style={S.notesArea} rows={3} />
+      </div>
+
+      {total === 0 ? (
+        <div style={{ ...S.empty, paddingTop: 50 }}>
+          <div style={S.emptyArt}><Flag size={26} /></div>
+          <p style={{ color: "var(--muted)", marginTop: 16, maxWidth: 340, lineHeight: 1.6 }}>
+            Aún no has marcado nada. Abre un work stream, pulsa la <Flag size={13} style={{ verticalAlign: "middle" }} /> de una task,
+            decisión, reunión, riesgo… y se replicará aquí.
+          </p>
+        </div>
+      ) : (
+        <div style={{ marginTop: 20, display: "flex", flexDirection: "column", gap: 18 }}>
+          {groups.map((g) => (
+            <div key={g.projectId}>
+              <button onClick={() => onOpenProject(g.projectId)} style={S.alignGroupHead}>
+                <span style={{ ...S.dot, background: g.accent }} />
+                {g.projectName}
+                <span style={{ fontSize: 12, color: "var(--muted)", fontWeight: 400 }}>· {g.items.length}</span>
+              </button>
+              <div style={S.card}>
+                {g.items.map((pt, i) => {
+                  const Icon = ALIGN_ICON[pt.section];
+                  return (
+                    <div key={pt.section + pt.itemId} style={{ ...S.alignRow, ...(i === g.items.length - 1 ? { borderBottom: "none" } : null), opacity: pt.done ? 0.55 : 1 }}>
+                      <button style={S.checkBtn} onClick={() => onToggleDone(pt)} title={pt.done ? "Reabrir" : "Marcar tratado"}>
+                        {pt.done ? <CheckCircle2 size={18} color={g.accent} /> : <Circle size={18} color="var(--line-strong)" />}
+                      </button>
+                      <span style={S.alignKind}><Icon size={12} /> {ALIGN_LABEL[pt.section]}</span>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ textDecoration: pt.done ? "line-through" : "none", overflow: "hidden", textOverflow: "ellipsis", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
+                          {pt.level && <LevelBadgeInline level={pt.level} />}
+                          {pt.primary}
+                        </div>
+                        {pt.secondary && <div style={{ fontSize: 12.5, color: "var(--muted)", marginTop: 2 }}>{pt.secondary}</div>}
+                        {pt.meta && <div style={{ fontSize: 11.5, color: "var(--muted)", marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{pt.meta}</div>}
+                      </div>
+                      <button style={{ ...S.alignToggle, ...S.alignToggleOn, flex: "0 0 auto" }} onClick={() => onUnalign(pt)} title="Quitar de Align with Maxine">
+                        <Flag size={13} fill="currentColor" />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function LevelBadgeInline({ level }) {
+  const lv = LEVELS[level] || LEVELS.M;
+  return (
+    <span style={{ display: "inline-grid", placeItems: "center", width: 18, height: 18, borderRadius: 5, fontSize: 10.5, fontWeight: 700, color: lv.color, background: lv.bg, marginRight: 6, verticalAlign: "middle" }}>
+      {lv.label}
+    </span>
+  );
+}
+
+// Construye un texto plano con los puntos ABIERTOS, agrupados por work stream
+function buildExport(groups, agenda) {
+  const lines = [`Align with Maxine — ${today()}`, ""];
+  if (agenda && agenda.trim()) {
+    lines.push("AGENDA / NOTAS", agenda.trim(), "");
+  }
+  for (const g of groups) {
+    const open = g.items.filter((it) => !it.done);
+    if (!open.length) continue;
+    lines.push(`## ${g.projectName}`);
+    for (const it of open) {
+      let l = `- [${ALIGN_LABEL[it.section]}] `;
+      if (it.level) l += `(${it.level}) `;
+      l += it.primary;
+      if (it.secondary) l += ` — ${it.secondary}`;
+      if (it.section === "meetings" && it.meta) l += ` (${it.meta})`;
+      if (it.section === "tasks" && it.due) l += ` (vence: ${it.due})`;
+      if (it.section === "links" && it.meta) l += ` (${it.meta})`;
+      lines.push(l);
+    }
+    lines.push("");
+  }
+  return lines.join("\n").trim();
+}
+
+function ExportModal({ text, onClose }) {
+  const [copied, setCopied] = useState(false);
+  const ref = useRef(null);
+  const copy = async () => {
+    try {
+      if (navigator.clipboard?.writeText) await navigator.clipboard.writeText(text);
+      else { ref.current?.select(); document.execCommand("copy"); }
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1800);
+    } catch (e) {
+      ref.current?.select();
+    }
+  };
+  return (
+    <div style={S.modalWrap} onClick={onClose}>
+      <div style={{ ...S.modal, maxWidth: 560 }} onClick={(e) => e.stopPropagation()}>
+        <div style={{ display: "flex", alignItems: "center", marginBottom: 14 }}>
+          <h3 style={{ fontFamily: "Fraunces, serif", fontSize: 22, margin: 0 }}>Exportar para Maxine</h3>
+          <button style={{ ...S.iconBtn, marginLeft: "auto" }} onClick={onClose}><X size={18} /></button>
+        </div>
+        <p style={{ fontSize: 13, color: "var(--muted)", marginBottom: 12, lineHeight: 1.5 }}>
+          Solo los puntos abiertos (sin marcar como tratados). Cópialo y pégalo en un email o mensaje.
+        </p>
+        <textarea ref={ref} readOnly value={text} onFocus={(e) => e.target.select()}
+          style={{ ...S.notesArea, height: 280, fontFamily: "ui-monospace, monospace", fontSize: 12.5 }} />
+        <button style={{ ...S.bigBtn, width: "100%", marginTop: 16 }} onClick={copy}>
+          {copied ? <><Check size={16} /> Copiado</> : <><Copy size={16} /> Copiar al portapapeles</>}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* ----------------------------- styles ----------------------------- */
+function StyleTag() {
+  return (
+    <style>{`
+      @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Hanken+Grotesk:wght@400;500;600&display=swap');
+      :root{
+        --bg:#f3ede2; --surface:#fbf8f2; --ink:#241f1a; --muted:#8a7d6c;
+        --line:#e6ddcd; --line-strong:#cfc3ad;
+      }
+      *{box-sizing:border-box;}
+      input,textarea,select,button{font-family:inherit;}
+      input:focus,textarea:focus,select:focus{outline:none;border-color:var(--line-strong)!important;}
+      textarea{resize:vertical;}
+      .pt-fadein{animation:ptfade .4s ease both;}
+      @keyframes ptfade{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:none;}}
+      .pt-toast{animation:pttoast .26s cubic-bezier(.2,.8,.3,1) both;}
+      @keyframes pttoast{from{opacity:0;transform:translate(-50%,14px);}to{opacity:1;transform:translate(-50%,0);}}
+      .pt-homerow{transition:background .15s ease;}
+      .pt-homerow:hover{background:var(--bg)!important;}
+      .pt-flash{animation:ptflash 1.7s ease;}
+      @keyframes ptflash{0%{box-shadow:0 0 0 0 rgba(176,74,47,0);}15%{box-shadow:0 0 0 3px rgba(176,74,47,.5);}100%{box-shadow:0 0 0 0 rgba(176,74,47,0);}}
+      .pt-main::-webkit-scrollbar{width:10px;}
+      .pt-main::-webkit-scrollbar-thumb{background:var(--line-strong);border-radius:8px;border:3px solid var(--bg);}
+      .pt-mobilebar{display:none!important;}
+      .pt-closebtn{display:none!important;}
+      @media(max-width:780px){
+        .pt-sidebar{position:fixed!important;left:0;top:0;bottom:0;transform:translateX(-105%);transition:transform .28s ease;z-index:40;box-shadow:0 0 60px rgba(0,0,0,.25);}
+        .pt-mobilebar{display:flex!important;}
+        .pt-closebtn{display:inline-flex!important;}
+        .pt-main{padding-top:64px!important;}
+      }
+    `}</style>
+  );
+}
+
+const S = {
+  root: { display: "flex", height: "100vh", minHeight: 520, background: "var(--bg)", color: "var(--ink)", fontFamily: "'Hanken Grotesk', sans-serif", fontSize: 14.5 },
+  mobileBar: { position: "fixed", top: 0, left: 0, right: 0, height: 56, background: "var(--surface)", borderBottom: "1px solid var(--line)", display: "flex", alignItems: "center", gap: 12, padding: "0 14px", zIndex: 30 },
+  backdrop: { position: "fixed", inset: 0, background: "rgba(36,31,26,.4)", zIndex: 35 },
+
+  sidebar: { width: 268, flex: "0 0 268px", background: "var(--surface)", borderRight: "1px solid var(--line)", display: "flex", flexDirection: "column", padding: 18 },
+  sidebarOpen: { transform: "translateX(0)" },
+  brand: { display: "flex", alignItems: "center", gap: 11, marginBottom: 18 },
+  brandMark: { width: 36, height: 36, borderRadius: 10, background: "var(--bg)", border: "1px solid var(--line)", display: "grid", placeItems: "center", color: "var(--ink)" },
+  newBtn: { display: "flex", alignItems: "center", justifyContent: "center", gap: 7, padding: "10px", borderRadius: 10, border: "1px dashed var(--line-strong)", background: "transparent", color: "var(--ink)", cursor: "pointer", fontWeight: 600, fontSize: 14 },
+  searchWrap: { display: "flex", alignItems: "center", gap: 8, margin: "14px 0 4px", padding: "8px 11px", borderRadius: 10, border: "1px solid var(--line)", background: "var(--bg)" },
+  searchInput: { flex: 1, minWidth: 0, border: "none", background: "transparent", color: "var(--ink)", fontSize: 13.5, outline: "none" },
+  maxineTab: { display: "flex", alignItems: "center", gap: 9, width: "100%", marginTop: 10, padding: "10px 11px", borderRadius: 11, border: "1px solid var(--line)", background: "var(--bg)", color: "var(--ink)", cursor: "pointer", fontSize: 14, fontWeight: 600 },
+  maxineTabActive: { background: "var(--ink)", color: "#f3ede2", borderColor: "var(--ink)" },
+  maxineIcon: { display: "inline-grid", placeItems: "center", width: 26, height: 26, borderRadius: 7, background: "rgba(176,74,47,.14)", color: "#b04a2f", flex: "0 0 auto" },
+  countBadge: { minWidth: 20, height: 20, padding: "0 6px", borderRadius: 999, background: "#b04a2f", color: "#fff", fontSize: 11.5, fontWeight: 700, display: "grid", placeItems: "center" },
+  listLabel: { fontSize: 11, fontWeight: 600, color: "var(--muted)", letterSpacing: ".06em", margin: "18px 4px 6px" },
+  projectList: { flex: 1, overflowY: "auto", marginTop: 14, display: "flex", flexDirection: "column", gap: 3 },
+  projItem: { display: "flex", alignItems: "center", gap: 10, padding: "9px 11px", borderRadius: 9, border: "1px solid transparent", background: "transparent", cursor: "pointer", textAlign: "left", fontSize: 14, color: "var(--ink)", width: "100%" },
+  projItemActive: { background: "var(--bg)", border: "1px solid var(--line)" },
+  dot: { width: 9, height: 9, borderRadius: 999, flex: "0 0 auto" },
+  topicTag: { fontSize: 10.5, color: "var(--muted)", border: "1px solid var(--line)", borderRadius: 6, padding: "1px 6px", letterSpacing: ".04em", textTransform: "uppercase" },
+  syncRow: { display: "flex", alignItems: "center", gap: 7, paddingTop: 12, marginTop: 8, borderTop: "1px solid var(--line)" },
+  dataRow: { display: "flex", gap: 8, marginTop: 12 },
+  dataBtn: { flex: 1, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "8px", borderRadius: 9, border: "1px solid var(--line)", background: "var(--surface)", color: "var(--ink)", cursor: "pointer", fontSize: 12.5, fontWeight: 600 },
+
+  main: { flex: 1, overflowY: "auto", padding: "32px 38px" },
+  empty: { height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", padding: 20 },
+  emptyArt: { width: 64, height: 64, borderRadius: 18, background: "var(--surface)", border: "1px solid var(--line)", display: "grid", placeItems: "center", color: "var(--muted)" },
+
+  projectView: { maxWidth: 1080, margin: "0 auto" },
+  projHeader: { display: "flex", alignItems: "center", gap: 11, marginBottom: 22, flexWrap: "wrap" },
+  projTitle: { fontFamily: "Fraunces, serif", fontSize: 30, fontWeight: 600, margin: 0, letterSpacing: "-.015em", cursor: "pointer" },
+  ghostBtn: { display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 12px", borderRadius: 9, border: "1px solid var(--line)", background: "var(--surface)", color: "var(--ink)", cursor: "pointer", fontSize: 13, fontWeight: 500 },
+
+  sectionToggles: { display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 22, padding: 14, background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 12 },
+  chip: { display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 12px", borderRadius: 999, border: "1px solid var(--line)", background: "var(--bg)", color: "var(--muted)", cursor: "pointer", fontSize: 13, fontWeight: 500 },
+  chipOn: { background: "var(--surface)", fontWeight: 600 },
+
+  sectionGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(330px, 1fr))", gap: 18, alignItems: "start" },
+  card: { background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 14, padding: 18, boxShadow: "0 1px 2px rgba(36,31,26,.03)" },
+  cardHead: { display: "flex", alignItems: "center", gap: 9, marginBottom: 14 },
+  cardTitle: { fontFamily: "Fraunces, serif", fontSize: 17, fontWeight: 600, margin: 0, letterSpacing: "-.01em" },
+
+  list: { listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 2 },
+  listItem: { display: "flex", alignItems: "center", gap: 9, padding: "6px 0", borderBottom: "1px solid var(--line)", fontSize: 14 },
+  checkBtn: { background: "none", border: "none", cursor: "pointer", padding: 0, display: "inline-flex", flex: "0 0 auto" },
+  delBtn: { background: "none", border: "none", cursor: "pointer", color: "var(--line-strong)", display: "inline-flex", padding: 2, flex: "0 0 auto" },
+  dateTag: { fontSize: 11.5, color: "var(--muted)", background: "var(--bg)", borderRadius: 6, padding: "2px 7px", fontVariantNumeric: "tabular-nums", flex: "0 0 auto" },
+
+  meetingItem: { padding: "10px 0", borderBottom: "1px solid var(--line)" },
+  decisionItem: { padding: "8px 0", borderBottom: "1px solid var(--line)" },
+  riskItem: { padding: "8px 0", borderBottom: "1px solid var(--line)" },
+  levelBadge: { flex: "0 0 auto", width: 22, height: 22, borderRadius: 6, border: "none", fontSize: 11.5, fontWeight: 700, display: "grid", placeItems: "center", lineHeight: 1, fontVariantNumeric: "tabular-nums" },
+  taskUrgent: { background: "#fbeae6", borderRadius: 7, paddingLeft: 7, paddingRight: 4, marginLeft: -7, marginRight: -4, borderBottom: "1px solid #f3d4cc" },
+  dueTag: { display: "inline-flex", alignItems: "center", gap: 4, flex: "0 0 auto", padding: "3px 8px", borderRadius: 999, border: "1px solid var(--line)", background: "var(--bg)", color: "var(--muted)", cursor: "pointer", fontSize: 11.5, fontWeight: 600, fontVariantNumeric: "tabular-nums" },
+  dueTagUrgent: { background: "#f6ddd6", borderColor: "#e3a899", color: "#b3331f" },
+  dueAdd: { display: "inline-flex", alignItems: "center", flex: "0 0 auto", padding: "4px 6px", borderRadius: 8, border: "1px dashed var(--line-strong)", background: "transparent", color: "var(--line-strong)", cursor: "pointer" },
+  alignToggle: { display: "inline-flex", alignItems: "center", justifyContent: "center", flex: "0 0 auto", width: 26, height: 26, borderRadius: 7, border: "1px solid transparent", background: "transparent", color: "var(--line-strong)", cursor: "pointer" },
+  alignToggleOn: { color: "#b04a2f", background: "rgba(176,74,47,.12)" },
+  maxineHeadIcon: { display: "inline-grid", placeItems: "center", width: 40, height: 40, borderRadius: 11, background: "rgba(176,74,47,.14)", color: "#b04a2f", flex: "0 0 auto" },
+  alignGroupHead: { display: "flex", alignItems: "center", gap: 9, background: "none", border: "none", cursor: "pointer", color: "var(--ink)", fontFamily: "Fraunces, serif", fontSize: 18, fontWeight: 600, padding: "0 0 8px", letterSpacing: "-.01em" },
+  alignRow: { display: "flex", alignItems: "flex-start", gap: 10, padding: "11px 0", borderBottom: "1px solid var(--line)" },
+  alignKind: { display: "inline-flex", alignItems: "center", gap: 4, flex: "0 0 auto", padding: "2px 8px", borderRadius: 999, background: "var(--bg)", border: "1px solid var(--line)", color: "var(--muted)", fontSize: 11, fontWeight: 600, marginTop: 1 },
+  toast: { position: "fixed", bottom: 26, left: "50%", transform: "translateX(-50%)", zIndex: 60, display: "flex", alignItems: "center", gap: 9, padding: "11px 18px", borderRadius: 999, background: "var(--ink)", color: "#f3ede2", fontSize: 14, fontWeight: 500, boxShadow: "0 10px 30px rgba(36,31,26,.35)", maxWidth: "90vw" },
+  toastIcon: { display: "inline-flex", color: "#e6a08a" },
+  homeGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(330px, 1fr))", gap: 18, alignItems: "start" },
+  homeCount: { marginLeft: "auto", minWidth: 22, height: 22, padding: "0 7px", borderRadius: 999, background: "var(--bg)", border: "1px solid var(--line)", color: "var(--muted)", fontSize: 12, fontWeight: 700, display: "grid", placeItems: "center" },
+  homeRow: { display: "flex", alignItems: "center", gap: 10, width: "100%", textAlign: "left", padding: "10px 8px", margin: "0 -8px", borderRadius: 9, border: "none", borderBottom: "1px solid var(--line)", background: "transparent", color: "var(--ink)", cursor: "pointer", fontSize: 14 },
+  homeEmpty: { color: "var(--muted)", fontSize: 13.5, padding: "4px 0 2px" },
+  streamPill: { display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11.5, color: "var(--muted)", marginTop: 3 },
+
+  input: { width: "100%", padding: "10px 12px", borderRadius: 9, border: "1px solid var(--line)", background: "var(--bg)", color: "var(--ink)", fontSize: 14.5 },
+  inputSm: { flex: 1, minWidth: 0, padding: "8px 10px", borderRadius: 8, border: "1px solid var(--line)", background: "var(--bg)", color: "var(--ink)", fontSize: 13.5 },
+  inlineEdit: { border: "none", background: "transparent", color: "var(--ink)", fontSize: 14, padding: "2px 0" },
+  miniArea: { width: "100%", marginTop: 6, padding: "7px 9px", borderRadius: 8, border: "1px solid var(--line)", background: "var(--bg)", color: "var(--ink)", fontSize: 13, lineHeight: 1.45 },
+  notesArea: { width: "100%", padding: "11px 13px", borderRadius: 10, border: "1px solid var(--line)", background: "var(--bg)", color: "var(--ink)", fontSize: 14, lineHeight: 1.55 },
+  select: { padding: "5px 8px", borderRadius: 8, border: "1px solid var(--line)", background: "var(--bg)", color: "var(--ink)", fontSize: 12.5 },
+  addMini: { flex: "0 0 auto", width: 38, borderRadius: 8, border: "none", color: "#fff", cursor: "pointer", display: "grid", placeItems: "center" },
+
+  barTrack: { height: 9, borderRadius: 999, background: "var(--bg)", border: "1px solid var(--line)", overflow: "hidden", marginTop: 10 },
+  barFill: { height: "100%", borderRadius: 999, transition: "width .35s ease" },
+
+  iconBtn: { background: "none", border: "none", cursor: "pointer", color: "var(--ink)", display: "inline-flex", padding: 4 },
+  bigBtn: { display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "12px 22px", borderRadius: 11, border: "none", background: "var(--ink)", color: "#f3ede2", cursor: "pointer", fontWeight: 600, fontSize: 15 },
+
+  modalWrap: { position: "fixed", inset: 0, background: "rgba(36,31,26,.45)", display: "grid", placeItems: "center", zIndex: 50, padding: 18 },
+  modal: { width: "100%", maxWidth: 440, background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 18, padding: 24, boxShadow: "0 24px 60px rgba(36,31,26,.3)" },
+  fieldLabel: { display: "block", fontSize: 12, fontWeight: 600, color: "var(--muted)", letterSpacing: ".04em", textTransform: "uppercase", marginBottom: 7 },
+  typeCard: { flex: 1, display: "flex", flexDirection: "column", alignItems: "flex-start", textAlign: "left", padding: "13px 14px", borderRadius: 11, border: "1px solid var(--line)", background: "var(--bg)", cursor: "pointer" },
+  typeCardActive: { borderColor: "var(--ink)", background: "var(--surface)", boxShadow: "0 0 0 1px var(--ink)" },
+};
+
+
+/* ---- punto de entrada (versión web autónoma) ---- */
+import { createRoot } from "react-dom/client";
+createRoot(document.getElementById("root")).render(React.createElement(App));
+
+</script>
+</body>
+</html>
