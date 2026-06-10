@@ -21,8 +21,18 @@
     .pt-mobilebar { padding-top: env(safe-area-inset-top) !important; height: calc(56px + env(safe-area-inset-top)) !important; }
     .pt-main { padding-top: calc(64px + env(safe-area-inset-top)) !important; }
   }
-  #loadingmsg { font-family: system-ui, sans-serif; color: #8a7d6c; text-align: center; padding-top: 30vh; }
+  #loadingmsg { font-family: system-ui, sans-serif; color: #8a7d6c; text-align: center; padding-top: 30vh; padding-left: 16px; padding-right: 16px; }
 </style>
+
+<script>
+  // Si algo del módulo falla, muéstralo en pantalla en vez de quedarse "Cargando…"
+  function __showErr(m) {
+    var el = document.getElementById("loadingmsg");
+    if (el && !el.dataset.err) { el.dataset.err = "1"; el.style.color = "#b3331f"; el.innerHTML = "No se pudo iniciar.<br><br>" + String(m || "") + "<br><br>Abre la consola del navegador (F12) para más detalle."; }
+  }
+  window.addEventListener("error", function (e) { __showErr(e.message || (e.error && e.error.message)); });
+  window.addEventListener("unhandledrejection", function (e) { __showErr(e.reason && (e.reason.message || e.reason)); });
+</script>
 
 <script type="importmap">
 {
@@ -32,9 +42,9 @@
     "react-dom": "https://esm.sh/react-dom@18.3.1",
     "react-dom/client": "https://esm.sh/react-dom@18.3.1/client",
     "lucide-react": "https://esm.sh/lucide-react@0.383.0?external=react",
-    "firebase/app": "https://esm.sh/firebase@10.13.0/app",
-    "firebase/auth": "https://esm.sh/firebase@10.13.0/auth",
-    "firebase/firestore": "https://esm.sh/firebase@10.13.0/firestore"
+    "firebase/app": "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js",
+    "firebase/auth": "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js",
+    "firebase/firestore": "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js"
   }
 }
 </script>
@@ -1686,7 +1696,7 @@ import {
   getRedirectResult, onAuthStateChanged, signOut
 } from "firebase/auth";
 import {
-  initializeFirestore, persistentLocalCache, persistentMultipleTabManager,
+  initializeFirestore, getFirestore, persistentLocalCache, persistentMultipleTabManager,
   doc, getDoc, setDoc, onSnapshot
 } from "firebase/firestore";
 import { createRoot } from "react-dom/client";
@@ -1701,11 +1711,21 @@ const firebaseConfig = {
   appId: "1:752525412951:web:396043e494ccdf816ab112"
 };
 
-const fbApp = initializeApp(firebaseConfig);
-const auth = getAuth(fbApp);
-const db = initializeFirestore(fbApp, {
-  localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() })
-});
+let auth, db;
+try {
+  const fbApp = initializeApp(firebaseConfig);
+  auth = getAuth(fbApp);
+  try {
+    db = initializeFirestore(fbApp, {
+      localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() })
+    });
+  } catch (e) {
+    console.warn("Firestore offline cache no disponible, usando modo online:", e);
+    db = getFirestore(fbApp);
+  }
+} catch (e) {
+  console.error("Error al inicializar Firebase:", e);
+}
 
 const PAL = { bg: "#f3ede2", surface: "#fbf8f2", ink: "#241f1a", muted: "#8a7d6c", accent: "#b04a2f", line: "#e6ddcd" };
 
@@ -1771,6 +1791,15 @@ function Centered({ children }) {
 function LoadingScreen({ msg }) {
   return React.createElement(Centered, null, React.createElement("p", { style: { color: PAL.muted } }, msg || "Cargando…"));
 }
+function ErrorScreen({ msg }) {
+  return React.createElement(Centered, null,
+    React.createElement("div", { style: { maxWidth: 440 } },
+      React.createElement("h2", { style: { fontFamily: "'Fraunces', serif", color: "#b3331f", margin: "0 0 10px" } }, "No se pudo iniciar"),
+      React.createElement("p", { style: { color: PAL.muted, lineHeight: 1.55, whiteSpace: "pre-wrap", wordBreak: "break-word" } }, String(msg || "")),
+      React.createElement("p", { style: { color: PAL.muted, fontSize: 12, marginTop: 14 } }, "Abre la consola del navegador (F12) para ver el detalle.")
+    )
+  );
+}
 function Login({ onSignIn, error }) {
   return React.createElement(Centered, null,
     React.createElement("div", { style: { maxWidth: 360 } },
@@ -1806,23 +1835,35 @@ async function doSignIn() {
     else { await signInWithPopup(auth, provider); }
   } catch (e) {
     try { await signInWithRedirect(auth, provider); }
-    catch (e2) { root.render(React.createElement(Login, { onSignIn: doSignIn, error: "No se pudo iniciar sesión. Revisa la configuración de Firebase." })); }
+    catch (e2) { root.render(React.createElement(Login, { onSignIn: doSignIn, error: "No se pudo iniciar sesión: " + (e2 && e2.message || e2) })); }
   }
 }
 
-getRedirectResult(auth).catch(() => {});
+if (!auth || !db) {
+  root.render(React.createElement(ErrorScreen, { msg: "Firebase no se inicializó. Revisa la consola: lo más común es que falten los scripts (sin conexión / dominio bloqueado) o un dato erróneo en firebaseConfig." }));
+} else {
+  window.__signOut = () => signOut(auth);
+  // pinta el login de inmediato; cambiará solo cuando se conozca el estado de sesión
+  root.render(React.createElement(Login, { onSignIn: doSignIn, error: null }));
+  getRedirectResult(auth).catch((e) => { console.warn("getRedirectResult:", e); });
 
-let mounted = false;
-onAuthStateChanged(auth, async (user) => {
-  if (!user) { mounted = false; root.render(React.createElement(Login, { onSignIn: doSignIn, error: null })); return; }
-  if (mounted) return;
-  root.render(React.createElement(LoadingScreen, { msg: "Cargando tus datos…" }));
-  window.storage = makeStorage(user.uid);
-  try { await window.storage.get("tracker:v1"); } catch (e) {}
-  setupLiveRefresh(window.storage);
-  mounted = true;
-  root.render(React.createElement(App));
-});
+  let mounted = false;
+  onAuthStateChanged(auth, async (user) => {
+    try {
+      if (!user) { mounted = false; root.render(React.createElement(Login, { onSignIn: doSignIn, error: null })); return; }
+      if (mounted) return;
+      root.render(React.createElement(LoadingScreen, { msg: "Cargando tus datos…" }));
+      window.storage = makeStorage(user.uid);
+      try { await window.storage.get("tracker:v1"); } catch (e) { console.warn("Primera lectura:", e); }
+      try { setupLiveRefresh(window.storage); } catch (e) { console.warn("Live refresh:", e); }
+      mounted = true;
+      root.render(React.createElement(App));
+    } catch (e) {
+      console.error(e);
+      root.render(React.createElement(ErrorScreen, { msg: "Error de sesión / Firestore: " + (e && e.message || e) }));
+    }
+  });
+}
 
 </script>
 </body>
