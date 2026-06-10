@@ -723,7 +723,7 @@ function ProjectView({ project, patch, onDelete, focus }) {
           No hay secciones activas. Pulsa <b>Secciones</b> para activar alguna.
         </div>
       ) : (
-        <div style={S.sectionGrid}>
+        <div className="pt-sectiongrid">
           {activeSections.map((s) => (
             <SectionCard key={s.key} meta={s} project={project} patch={patch} flash={flash === s.key} />
           ))}
@@ -1643,6 +1643,8 @@ function StyleTag() {
       .pt-homerow:hover{background:var(--bg)!important;}
       .pt-flash{animation:ptflash 1.7s ease;}
       @keyframes ptflash{0%{box-shadow:0 0 0 0 rgba(176,74,47,0);}15%{box-shadow:0 0 0 3px rgba(176,74,47,.5);}100%{box-shadow:0 0 0 0 rgba(176,74,47,0);}}
+      .pt-sectiongrid{display:grid;grid-template-columns:1fr;gap:18px;align-items:start;}
+      @media(min-width:781px){.pt-sectiongrid{grid-template-columns:repeat(2,minmax(0,1fr));}}
       .pt-main::-webkit-scrollbar{width:10px;}
       .pt-main::-webkit-scrollbar-thumb{background:var(--line-strong);border-radius:8px;border:3px solid var(--bg);}
       .pt-mobilebar{display:none!important;}
