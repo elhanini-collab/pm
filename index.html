@@ -60,7 +60,7 @@ import {
   CalendarDays, StickyNote, Link2, Lightbulb, ArrowRight, SlidersHorizontal,
   FolderOpen, Menu, ChevronLeft, ExternalLink, Pencil, Cloud, CloudOff,
   AlertTriangle, User, Flag, Users, Copy, Home as HomeIcon, CalendarClock,
-  Download, Upload, Search,
+  Download, Upload, Search, Archive, ArchiveRestore,
 } from "lucide-react";
 
 /* ------------------------------------------------------------------ *
@@ -126,6 +126,7 @@ const ALIGN_ICON = {
 function collectAligned(projects) {
   const out = [];
   for (const p of projects) {
+    if (p.archived) continue;
     const base = { projectId: p.id, projectName: p.name, accent: p.accent };
     (p.tasks || []).filter((t) => t.aligned).forEach((t) =>
       out.push({ ...base, section: "tasks", itemId: t.id, primary: t.text, level: t.level, due: t.due, done: !!t.alignDone }));
@@ -203,7 +204,7 @@ async function saveData(data) {
 export default function App() {
   const [data, setData] = useState({ projects: [] });
   const [selectedId, setSelectedId] = useState(null);
-  const [view, setView] = useState("home"); // "home" | "project" | "align" | "search"
+  const [view, setView] = useState("home"); // "home" | "project" | "align" | "search" | "archived"
   const [query, setQuery] = useState("");
   const [focus, setFocus] = useState(null); // { key, ts } para resaltar una sección
   const [loading, setLoading] = useState(true);
@@ -346,6 +347,8 @@ export default function App() {
 
   const alignedPoints = collectAligned(data.projects);
   const openCount = alignedPoints.filter((a) => !a.done).length;
+  const activeProjects = data.projects.filter((p) => !p.archived);
+  const archivedProjects = data.projects.filter((p) => p.archived);
 
   return (
     <ToastContext.Provider value={notify}>
@@ -358,7 +361,7 @@ export default function App() {
           <Menu size={20} />
         </button>
         <span style={{ fontFamily: "Fraunces, serif", fontWeight: 600, fontSize: 17 }}>
-          {view === "search" ? "Buscar" : view === "home" ? "Home" : view === "align" ? "Align with Maxine" : project ? project.name : "Mis work streams"}
+          {view === "archived" ? "Archivados" : view === "search" ? "Buscar" : view === "home" ? "Home" : view === "align" ? "Align with Maxine" : project ? project.name : "Mis work streams"}
         </span>
         <SyncDot state={syncState} />
       </div>
@@ -428,12 +431,12 @@ export default function App() {
         <div style={S.listLabel}>WORK STREAMS</div>
 
         <div style={S.projectList}>
-          {data.projects.length === 0 && !loading && (
+          {activeProjects.length === 0 && !loading && (
             <p style={{ color: "var(--muted)", fontSize: 13.5, padding: "8px 4px", lineHeight: 1.5 }}>
               Aún no hay nada. Crea tu primer work stream.
             </p>
           )}
-          {data.projects.map((p) => {
+          {activeProjects.map((p) => {
             const active = view === "project" && p.id === selectedId;
             return (
               <button
@@ -449,6 +452,15 @@ export default function App() {
             );
           })}
         </div>
+
+        <button
+          onClick={() => { setView("archived"); setSidebarOpen(false); }}
+          style={{ ...S.archivedTab, ...(view === "archived" ? S.maxineTabActive : null) }}
+        >
+          <Archive size={14} />
+          <span style={{ flex: 1, textAlign: "left" }}>Archivados</span>
+          {archivedProjects.length > 0 && <span style={{ ...S.countBadge, background: "var(--line-strong)" }}>{archivedProjects.length}</span>}
+        </button>
 
         <div style={S.dataRow}>
           <button style={S.dataBtn} onClick={exportData}>
@@ -479,6 +491,13 @@ export default function App() {
       <main style={S.main} className="pt-main">
         {loading ? (
           <div style={S.empty}><p style={{ color: "var(--muted)" }}>Cargando…</p></div>
+        ) : view === "archived" ? (
+          <ArchivedView
+            projects={archivedProjects}
+            onOpen={(pid) => openProject(pid)}
+            onUnarchive={(pid) => patchProject(pid, { archived: false })}
+            onDelete={(pid) => deleteProject(pid)}
+          />
         ) : view === "search" ? (
           <SearchView
             projects={data.projects}
@@ -658,10 +677,16 @@ function ProjectView({ project, patch, onDelete, focus }) {
             <Pencil size={15} style={{ marginLeft: 10, opacity: 0.35, verticalAlign: "middle" }} />
           </h1>
         )}
+        {project.archived && (
+          <span style={{ ...S.topicTag, marginLeft: 4, background: "var(--bg)" }}>Archivado</span>
+        )}
 
         <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
           <button style={S.ghostBtn} onClick={() => setShowSections((v) => !v)}>
             <SlidersHorizontal size={15} /> Secciones
+          </button>
+          <button style={S.ghostBtn} onClick={() => patch({ archived: !project.archived })}>
+            {project.archived ? <><ArchiveRestore size={15} /> Desarchivar</> : <><Archive size={15} /> Archivar</>}
           </button>
           <button
             style={{ ...S.ghostBtn, color: "#c0392b" }}
@@ -1136,6 +1161,42 @@ function RisksBody({ project, patch }) {
   );
 }
 
+/* ============================ Archivados ============================ */
+function ArchivedView({ projects, onOpen, onUnarchive, onDelete }) {
+  return (
+    <div style={{ maxWidth: 820, margin: "0 auto" }} className="pt-fadein">
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 6 }}>
+        <span style={{ ...S.maxineHeadIcon, background: "rgba(138,125,108,.16)", color: "var(--muted)" }}><Archive size={20} /></span>
+        <h1 style={{ fontFamily: "Fraunces, serif", fontSize: 28, fontWeight: 600, margin: 0, letterSpacing: "-.015em" }}>Archivados</h1>
+      </div>
+      <p style={{ color: "var(--muted)", marginBottom: 22 }}>
+        {projects.length === 0
+          ? "No tienes work streams archivados. Archiva uno desde su cabecera cuando ya no lo necesites en el día a día."
+          : `${projects.length} work stream${projects.length === 1 ? "" : "s"} archivado${projects.length === 1 ? "" : "s"}. No aparecen en Home, búsqueda ni Align with Maxine.`}
+      </p>
+
+      {projects.length > 0 && (
+        <div style={S.card}>
+          {projects.map((p, i) => (
+            <div key={p.id} style={{ ...S.alignRow, alignItems: "center", ...(i === projects.length - 1 ? { borderBottom: "none" } : null) }}>
+              <span style={{ ...S.dot, background: p.accent }} />
+              <button onClick={() => onOpen(p.id)} style={{ flex: 1, minWidth: 0, textAlign: "left", background: "none", border: "none", cursor: "pointer", color: "var(--ink)", fontSize: 15, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {p.name}
+              </button>
+              <button style={S.ghostBtn} onClick={() => onUnarchive(p.id)}>
+                <ArchiveRestore size={15} /> Desarchivar
+              </button>
+              <button style={{ ...S.ghostBtn, color: "#c0392b" }} onClick={() => { if (confirm(`¿Eliminar "${p.name}"? No se puede deshacer.`)) onDelete(p.id); }}>
+                <Trash2 size={15} />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ============================ Búsqueda global ============================ */
 const SEARCH_KIND = {
   name: "Work stream", tasks: "Current Task", nextSteps: "Future Task",
@@ -1174,6 +1235,7 @@ function searchProjects(projects, q) {
   const hit = (s) => s && s.toLowerCase().includes(ql);
   const out = [];
   for (const p of projects) {
+    if (p.archived) continue;
     const base = { projectId: p.id, projectName: p.name, accent: p.accent };
     if (hit(p.name)) out.push({ ...base, section: "name", text: p.name });
     (p.tasks || []).forEach((t) => hit(t.text) && out.push({ ...base, section: "tasks", text: t.text }));
@@ -1265,6 +1327,7 @@ function homeDayLabel(d) {
 function HomeView({ projects, onOpen, onCreate }) {
   const urgentTasks = [], meetings = [], highRisks = [];
   for (const p of projects) {
+    if (p.archived) continue;
     const base = { projectId: p.id, projectName: p.name, accent: p.accent };
     for (const t of p.tasks || []) {
       if (t.done || !t.due) continue;
@@ -1611,6 +1674,7 @@ const S = {
   maxineIcon: { display: "inline-grid", placeItems: "center", width: 26, height: 26, borderRadius: 7, background: "rgba(176,74,47,.14)", color: "#b04a2f", flex: "0 0 auto" },
   countBadge: { minWidth: 20, height: 20, padding: "0 6px", borderRadius: 999, background: "#b04a2f", color: "#fff", fontSize: 11.5, fontWeight: 700, display: "grid", placeItems: "center" },
   listLabel: { fontSize: 11, fontWeight: 600, color: "var(--muted)", letterSpacing: ".06em", margin: "18px 4px 6px" },
+  archivedTab: { display: "flex", alignItems: "center", gap: 9, width: "100%", marginTop: 6, padding: "9px 11px", borderRadius: 10, border: "1px solid transparent", background: "transparent", color: "var(--muted)", cursor: "pointer", fontSize: 13.5, fontWeight: 600 },
   projectList: { flex: 1, overflowY: "auto", marginTop: 14, display: "flex", flexDirection: "column", gap: 3 },
   projItem: { display: "flex", alignItems: "center", gap: 10, padding: "9px 11px", borderRadius: 9, border: "1px solid transparent", background: "transparent", cursor: "pointer", textAlign: "left", fontSize: 14, color: "var(--ink)", width: "100%" },
   projItemActive: { background: "var(--bg)", border: "1px solid var(--line)" },
