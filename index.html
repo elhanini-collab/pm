@@ -60,7 +60,7 @@ import {
   CalendarDays, StickyNote, Link2, Lightbulb, ArrowRight, SlidersHorizontal,
   FolderOpen, Menu, ChevronLeft, ExternalLink, Pencil, Cloud, CloudOff,
   AlertTriangle, User, Flag, Users, Copy, Home as HomeIcon, CalendarClock,
-  Download, Upload, Search, Archive, ArchiveRestore, LogOut,
+  Download, Upload, Search, Archive, ArchiveRestore, LogOut, GripVertical, ArrowUp,
 } from "lucide-react";
 
 /* ------------------------------------------------------------------ *
@@ -207,6 +207,8 @@ export default function App() {
   const [view, setView] = useState("home"); // "home" | "project" | "align" | "search" | "archived"
   const [query, setQuery] = useState("");
   const [focus, setFocus] = useState(null); // { key, ts } para resaltar una sección
+  const [dragId, setDragId] = useState(null);
+  const [dragOverId, setDragOverId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -279,6 +281,21 @@ export default function App() {
   };
 
   const fileInputRef = useRef(null);
+
+  // Reordenar work streams arrastrando en el panel lateral
+  const moveProject = (fromId, toId) => {
+    if (!fromId || !toId || fromId === toId) return;
+    setData((d) => {
+      const arr = [...d.projects];
+      const from = arr.findIndex((p) => p.id === fromId);
+      if (from < 0) return d;
+      const [moved] = arr.splice(from, 1);
+      const to = arr.findIndex((p) => p.id === toId);
+      if (to < 0) return d;
+      arr.splice(to, 0, moved);
+      return { ...d, projects: arr };
+    });
+  };
 
   // Abre un work stream; si se indica sección, la activa (si estaba oculta) y la resalta
   const openProject = (pid, section = null) => {
@@ -443,12 +460,25 @@ export default function App() {
           )}
           {activeProjects.map((p) => {
             const active = view === "project" && p.id === selectedId;
+            const isOver = dragOverId === p.id && dragId && dragId !== p.id;
             return (
               <button
                 key={p.id}
+                draggable
+                onDragStart={(e) => { setDragId(p.id); e.dataTransfer.effectAllowed = "move"; }}
+                onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; if (dragOverId !== p.id) setDragOverId(p.id); }}
+                onDrop={(e) => { e.preventDefault(); moveProject(dragId, p.id); setDragId(null); setDragOverId(null); }}
+                onDragEnd={() => { setDragId(null); setDragOverId(null); }}
                 onClick={() => openProject(p.id)}
-                style={{ ...S.projItem, ...(active ? S.projItemActive : null) }}
+                style={{
+                  ...S.projItem,
+                  ...(active ? S.projItemActive : null),
+                  ...(isOver ? S.projItemOver : null),
+                  opacity: dragId === p.id ? 0.4 : 1,
+                  cursor: "grab",
+                }}
               >
+                <GripVertical size={14} color="var(--line-strong)" style={{ flex: "0 0 auto", marginLeft: -4 }} />
                 <span style={{ ...S.dot, background: p.accent }} />
                 <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {p.name}
@@ -1099,6 +1129,16 @@ function NextStepsBody({ project, patch }) {
   const toggle = (id) => patch((p) => ({ nextSteps: p.nextSteps.map((t) => t.id === id ? { ...t, done: !t.done } : t) }));
   const del = (id) => patch((p) => ({ nextSteps: p.nextSteps.filter((t) => t.id !== id) }));
   const alignN = (id) => patch((p) => ({ nextSteps: p.nextSteps.map((t) => t.id === id ? { ...t, aligned: !t.aligned } : t) }));
+  const toCurrent = (id) => patch((p) => {
+    const it = p.nextSteps.find((t) => t.id === id);
+    if (!it) return {};
+    const task = { ...it, level: "M", due: "" };
+    return {
+      nextSteps: p.nextSteps.filter((t) => t.id !== id),
+      tasks: [...p.tasks, task],
+      sections: { ...p.sections, tasks: true },
+    };
+  });
   return (
     <div>
       <ul style={S.list}>
@@ -1108,6 +1148,9 @@ function NextStepsBody({ project, patch }) {
               {t.done ? <CheckCircle2 size={18} color={project.accent} /> : <ArrowRight size={17} color="var(--line-strong)" />}
             </button>
             <span style={{ flex: 1, textDecoration: t.done ? "line-through" : "none", color: t.done ? "var(--muted)" : "inherit" }}>{t.text}</span>
+            <button style={S.delBtn} onClick={() => toCurrent(t.id)} title="Convertir en Current Task">
+              <ArrowUp size={15} />
+            </button>
             <AlignToggle active={t.aligned} onClick={() => alignN(t.id)} />
             <button style={S.delBtn} onClick={() => del(t.id)}><X size={15} /></button>
           </li>
@@ -1698,6 +1741,7 @@ const S = {
   projectList: { flex: 1, overflowY: "auto", marginTop: 14, display: "flex", flexDirection: "column", gap: 3 },
   projItem: { display: "flex", alignItems: "center", gap: 10, padding: "9px 11px", borderRadius: 9, border: "1px solid transparent", background: "transparent", cursor: "pointer", textAlign: "left", fontSize: 14, color: "var(--ink)", width: "100%" },
   projItemActive: { background: "var(--accent-soft)", border: "1px solid transparent", color: "var(--accent)", fontWeight: 600 },
+  projItemOver: { boxShadow: "inset 0 2px 0 var(--accent)" },
   dot: { width: 9, height: 9, borderRadius: 999, flex: "0 0 auto" },
   topicTag: { fontSize: 10.5, color: "var(--muted)", border: "1px solid var(--line)", borderRadius: 6, padding: "1px 6px", letterSpacing: ".04em", textTransform: "uppercase" },
   syncRow: { display: "flex", alignItems: "center", gap: 7, paddingTop: 12, marginTop: 8, borderTop: "1px solid var(--line)" },
