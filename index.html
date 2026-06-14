@@ -60,7 +60,7 @@ import {
   CalendarDays, StickyNote, Link2, Lightbulb, ArrowRight, SlidersHorizontal,
   FolderOpen, Menu, ChevronLeft, ExternalLink, Pencil, Cloud, CloudOff,
   AlertTriangle, User, Flag, Users, Copy, Home as HomeIcon, CalendarClock,
-  Download, Upload, Search, Archive, ArchiveRestore,
+  Download, Upload, Search, Archive, ArchiveRestore, LogOut,
 } from "lucide-react";
 
 /* ------------------------------------------------------------------ *
@@ -481,14 +481,26 @@ export default function App() {
           />
         </div>
 
+        {typeof window !== "undefined" && window.__user && (
+          <div style={S.accountRow}>
+            {window.__user.photo
+              ? <img src={window.__user.photo} alt="" style={S.avatarImg} referrerPolicy="no-referrer" />
+              : <span style={S.avatar}>{(window.__user.name || window.__user.email || "?").trim().charAt(0).toUpperCase()}</span>}
+            <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 12.5 }}
+              title={window.__user.email || window.__user.name}>
+              {window.__user.email || window.__user.name}
+            </span>
+            <button style={S.iconBtn} title="Cerrar sesión" onClick={() => window.__signOut && window.__signOut()}>
+              <LogOut size={15} />
+            </button>
+          </div>
+        )}
+
         <div style={S.syncRow}>
           <SyncDot state={syncState} />
           <span style={{ fontSize: 11.5, color: "var(--muted)" }}>
             {syncState === "error" ? "Error al guardar" : syncState === "saving" ? "Guardando…" : "Guardado"}
           </span>
-          {typeof window !== "undefined" && window.__signOut && (
-            <button style={S.signOutBtn} onClick={() => window.__signOut()}>Cerrar sesión</button>
-          )}
         </div>
       </aside>
 
@@ -1690,7 +1702,9 @@ const S = {
   topicTag: { fontSize: 10.5, color: "var(--muted)", border: "1px solid var(--line)", borderRadius: 6, padding: "1px 6px", letterSpacing: ".04em", textTransform: "uppercase" },
   syncRow: { display: "flex", alignItems: "center", gap: 7, paddingTop: 12, marginTop: 8, borderTop: "1px solid var(--line)" },
   dataRow: { display: "flex", gap: 8, marginTop: 12 },
-  signOutBtn: { marginLeft: "auto", background: "none", border: "none", color: "var(--muted)", cursor: "pointer", fontSize: 11.5, textDecoration: "underline", padding: 0 },
+  accountRow: { display: "flex", alignItems: "center", gap: 9, marginTop: 12, padding: "9px 10px", borderRadius: 11, border: "1px solid var(--line)", background: "var(--surface)" },
+  avatar: { width: 28, height: 28, borderRadius: 999, background: "var(--accent)", color: "#fff", display: "grid", placeItems: "center", fontSize: 13, fontWeight: 700, flex: "0 0 auto" },
+  avatarImg: { width: 28, height: 28, borderRadius: 999, objectFit: "cover", flex: "0 0 auto" },
   dataBtn: { flex: 1, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "8px", borderRadius: 9, border: "1px solid var(--line)", background: "var(--surface)", color: "var(--ink)", cursor: "pointer", fontSize: 12.5, fontWeight: 600 },
 
   main: { flex: 1, overflowY: "auto", padding: "32px 38px" },
@@ -1884,6 +1898,7 @@ function authErr(e) {
   if (c.indexOf("unauthorized-domain") >= 0) return "Dominio no autorizado en Firebase (Authentication → Settings → Dominios autorizados).";
   if (c.indexOf("popup-closed") >= 0 || c.indexOf("cancelled-popup") >= 0) return "";
   if (c.indexOf("operation-not-allowed") >= 0) return "Habilita Email/Contraseña en Firebase (Authentication → Sign-in method).";
+  if (c.indexOf("network-request-failed") >= 0) return "No se pudo contactar con el servidor. Revisa tu conexión; puede que un firewall corporativo o una extensión del navegador estén bloqueando Google/Firebase. Prueba en otra red (datos del móvil) o en modo incógnito.";
   return (e && e.message) || "No se pudo completar.";
 }
 
@@ -1988,6 +2003,7 @@ if (!auth || !db) {
       if (mounted) return;
       root.render(React.createElement(LoadingScreen, { msg: "Cargando tus datos…" }));
       window.storage = makeStorage(user.uid);
+      window.__user = { email: user.email || "", name: user.displayName || "", photo: user.photoURL || "" };
       try { await window.storage.get("tracker:v1"); } catch (e) { console.warn("Primera lectura:", e); }
       try { setupLiveRefresh(window.storage); } catch (e) { console.warn("Live refresh:", e); }
       mounted = true;
