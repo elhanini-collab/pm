@@ -60,7 +60,7 @@ import {
   CalendarDays, StickyNote, Link2, Lightbulb, ArrowRight, SlidersHorizontal,
   FolderOpen, Menu, ChevronLeft, ExternalLink, Pencil, Cloud, CloudOff,
   AlertTriangle, User, Flag, Users, Copy, Home as HomeIcon, CalendarClock,
-  Download, Upload, Search, Archive, ArchiveRestore, LogOut, GripVertical, ArrowUp,
+  Download, Upload, Search, Archive, ArchiveRestore, LogOut, GripVertical, ArrowUp, ArrowDown, CornerUpRight,
 } from "lucide-react";
 
 /* ------------------------------------------------------------------ *
@@ -280,6 +280,31 @@ export default function App() {
     });
   };
 
+  // Mueve una tarea (current o future) de un work stream a otro
+  const moveTaskToProject = useCallback((fromPid, list, taskId, toPid) => {
+    if (!fromPid || !toPid || fromPid === toPid) return;
+    setData((d) => {
+      const src = d.projects.find((p) => p.id === fromPid);
+      if (!src) return d;
+      const item = (src[list] || []).find((t) => t.id === taskId);
+      if (!item) return d;
+      return {
+        ...d,
+        projects: d.projects.map((p) => {
+          if (p.id === fromPid) return { ...p, [list]: p[list].filter((t) => t.id !== taskId) };
+          if (p.id === toPid) {
+            return {
+              ...p,
+              [list]: [...(p[list] || []), item],
+              sections: { ...p.sections, [list]: true },
+            };
+          }
+          return p;
+        }),
+      };
+    });
+  }, []);
+
   const fileInputRef = useRef(null);
 
   // Reordenar work streams arrastrando en el panel lateral
@@ -460,14 +485,25 @@ export default function App() {
           )}
           {activeProjects.map((p) => {
             const active = view === "project" && p.id === selectedId;
-            const isOver = dragOverId === p.id && dragId && dragId !== p.id;
+            const isOver = dragOverId === p.id && dragId !== p.id;
             return (
               <button
                 key={p.id}
                 draggable
                 onDragStart={(e) => { setDragId(p.id); e.dataTransfer.effectAllowed = "move"; }}
                 onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; if (dragOverId !== p.id) setDragOverId(p.id); }}
-                onDrop={(e) => { e.preventDefault(); moveProject(dragId, p.id); setDragId(null); setDragOverId(null); }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  let d = {};
+                  try { d = JSON.parse(e.dataTransfer.getData("text/plain") || "{}"); } catch (err) { d = {}; }
+                  if (d.kind === "task" && d.projectId && d.projectId !== p.id) {
+                    moveTaskToProject(d.projectId, d.list, d.id, p.id);
+                    notify(`Movida a “${p.name}”`);
+                  } else {
+                    moveProject(dragId, p.id);
+                  }
+                  setDragId(null); setDragOverId(null);
+                }}
                 onDragEnd={() => { setDragId(null); setDragOverId(null); }}
                 onClick={() => openProject(p.id)}
                 style={{
@@ -575,6 +611,8 @@ export default function App() {
             focus={focus}
             patch={(patch) => patchProject(project.id, patch)}
             onDelete={() => deleteProject(project.id)}
+            targets={activeProjects.filter((p) => p.id !== project.id)}
+            onMoveTask={(list, taskId, toPid) => moveTaskToProject(project.id, list, taskId, toPid)}
           />
         )}
       </main>
@@ -673,7 +711,7 @@ function CreateModal({ onClose, onCreate }) {
   );
 }
 
-function ProjectView({ project, patch, onDelete, focus }) {
+function ProjectView({ project, patch, onDelete, focus, targets, onMoveTask }) {
   const [editingName, setEditingName] = useState(false);
   const [nameDraft, setNameDraft] = useState(project.name);
   const [showSections, setShowSections] = useState(false);
@@ -772,7 +810,7 @@ function ProjectView({ project, patch, onDelete, focus }) {
       ) : (
         <div className="pt-sectiongrid">
           {activeSections.map((s) => (
-            <SectionCard key={s.key} meta={s} project={project} patch={patch} flash={flash === s.key} />
+            <SectionCard key={s.key} meta={s} project={project} patch={patch} flash={flash === s.key} targets={targets} onMoveTask={onMoveTask} />
           ))}
         </div>
       )}
@@ -780,16 +818,16 @@ function ProjectView({ project, patch, onDelete, focus }) {
   );
 }
 
-function SectionCard({ meta, project, patch, flash }) {
+function SectionCard({ meta, project, patch, flash, targets, onMoveTask }) {
   const Icon = meta.icon;
   const bodies = {
-    tasks: <TasksBody project={project} patch={patch} />,
+    tasks: <TasksBody project={project} patch={patch} targets={targets} onMoveTask={onMoveTask} />,
     progress: <ProgressBody project={project} patch={patch} />,
     meetings: <MeetingsBody project={project} patch={patch} />,
     notes: <NotesBody project={project} patch={patch} />,
     links: <LinksBody project={project} patch={patch} />,
     decisions: <DecisionsBody project={project} patch={patch} />,
-    nextSteps: <NextStepsBody project={project} patch={patch} />,
+    nextSteps: <NextStepsBody project={project} patch={patch} targets={targets} onMoveTask={onMoveTask} />,
     risks: <RisksBody project={project} patch={patch} />,
   };
   return (
@@ -893,7 +931,111 @@ function EditableText({ value, onChange, done, style }) {
   );
 }
 
-function TasksBody({ project, patch }) {
+/* -------- reordenar listas arrastrando (y mover entre listas) -------- */
+function useDragSort(items, onReorder, listKey, onDropFromOther, projectId) {
+  const [dragId, setDragId] = useState(null);
+  const [overId, setOverId] = useState(null);
+  const [overList, setOverList] = useState(false);
+
+  const move = (fromId, toId) => {
+    if (!fromId || !toId || fromId === toId) return;
+    const arr = [...items];
+    const from = arr.findIndex((x) => x.id === fromId);
+    if (from < 0) return;
+    const [moved] = arr.splice(from, 1);
+    const to = arr.findIndex((x) => x.id === toId);
+    if (to < 0) return;
+    arr.splice(to, 0, moved);
+    onReorder(arr);
+  };
+
+  const parse = (e) => {
+    try { return JSON.parse(e.dataTransfer.getData("text/plain") || "{}"); }
+    catch (err) { return {}; }
+  };
+
+  // props a esparcir sobre cada <li>
+  const rowProps = (id) => ({
+    draggable: true,
+    onDragStart: (e) => {
+      setDragId(id);
+      e.dataTransfer.effectAllowed = "move";
+      e.dataTransfer.setData("text/plain", JSON.stringify({ id, list: listKey, projectId, kind: "task" }));
+    },
+    onDragOver: (e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; if (overId !== id) setOverId(id); },
+    onDrop: (e) => {
+      e.preventDefault(); e.stopPropagation();
+      const d = parse(e);
+      if (d.list && d.list !== listKey) { onDropFromOther && onDropFromOther(d.id); }
+      else { move(dragId || d.id, id); }
+      setDragId(null); setOverId(null); setOverList(false);
+    },
+    onDragEnd: () => { setDragId(null); setOverId(null); setOverList(false); },
+  });
+
+  const rowStyle = (id) => ({
+    opacity: dragId === id ? 0.4 : 1,
+    ...(overId === id && dragId && dragId !== id ? { boxShadow: "inset 0 2px 0 var(--accent)" } : null),
+  });
+
+  // props para la zona de la lista completa (permite soltar desde la otra lista)
+  const zoneProps = {
+    onDragOver: (e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; if (!dragId && !overList) setOverList(true); },
+    onDragLeave: () => setOverList(false),
+    onDrop: (e) => {
+      e.preventDefault();
+      const d = parse(e);
+      if (d.list && d.list !== listKey && onDropFromOther) onDropFromOther(d.id);
+      setOverList(false); setOverId(null); setDragId(null);
+    },
+  };
+  const zoneStyle = overList && !dragId
+    ? { outline: "2px dashed var(--accent)", outlineOffset: 6, borderRadius: 10 }
+    : null;
+
+  return { rowProps, rowStyle, zoneProps, zoneStyle };
+}
+
+function DragHandle() {
+  return <GripVertical size={13} color="var(--line-strong)" style={{ flex: "0 0 auto", cursor: "grab", marginLeft: -3 }} />;
+}
+
+/* -------- mover una tarea a otro work stream -------- */
+function MoveToMenu({ targets, onMove }) {
+  const [open, setOpen] = useState(false);
+  const notify = useContext(ToastContext);
+  if (!targets || targets.length === 0) return null;
+
+  const pick = (p) => {
+    setOpen(false);
+    onMove(p.id);
+    if (notify) notify(`Movida a “${p.name}”`);
+  };
+
+  return (
+    <span style={{ position: "relative", flex: "0 0 auto", display: "inline-flex" }}>
+      <button style={S.delBtn} title="Mover a otro work stream" onClick={() => setOpen((v) => !v)}>
+        <CornerUpRight size={15} />
+      </button>
+      {open && (
+        <>
+          <span onClick={() => setOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 40 }} />
+          <div style={S.moveMenu}>
+            <div style={S.moveMenuHead}>Mover a…</div>
+            {targets.map((p) => (
+              <button key={p.id} style={S.moveMenuItem} className="pt-homerow" onClick={() => pick(p)}>
+                <span style={{ ...S.dot, background: p.accent }} />
+                <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}</span>
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </span>
+  );
+}
+
+function TasksBody({ project, patch, targets, onMoveTask }) {
   const tasks = project.tasks;
   const [draft, setDraft] = useState("");
   const [draftLevel, setDraftLevel] = useState("M");
@@ -912,17 +1054,43 @@ function TasksBody({ project, patch }) {
   const del = (id) => patch((p) => ({ tasks: p.tasks.filter((t) => t.id !== id) }));
   const done = tasks.filter((t) => t.done).length;
 
+  // mover esta tarea a Future Tasks
+  const toFuture = (id) => patch((p) => {
+    const it = p.tasks.find((t) => t.id === id);
+    if (!it) return {};
+    const { level, due, ...rest } = it;
+    return {
+      tasks: p.tasks.filter((t) => t.id !== id),
+      nextSteps: [...p.nextSteps, rest],
+      sections: { ...p.sections, nextSteps: true },
+    };
+  });
+  // recibir una tarea arrastrada desde Future Tasks
+  const fromFuture = (id) => patch((p) => {
+    const it = p.nextSteps.find((t) => t.id === id);
+    if (!it) return {};
+    return {
+      nextSteps: p.nextSteps.filter((t) => t.id !== id),
+      tasks: [...p.tasks, { ...it, level: "M", due: "" }],
+    };
+  });
+
+  const { rowProps, rowStyle, zoneProps, zoneStyle } = useDragSort(
+    tasks, (arr) => patch({ tasks: arr }), "tasks", fromFuture, project.id
+  );
+
   return (
     <div>
       {tasks.length > 0 && (
         <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 8 }}>{done}/{tasks.length} completadas</div>
       )}
-      <ul style={S.list}>
+      <ul style={{ ...S.list, ...(zoneStyle || {}) }} {...zoneProps}>
         {tasks.map((t) => {
           const d = t.done ? null : daysUntil(t.due);
           const urgent = d !== null && d <= 3; // 3 días o menos, incluye vencidas
           return (
-            <li key={t.id} style={{ ...S.listItem, ...(urgent ? S.taskUrgent : null) }}>
+            <li key={t.id} {...rowProps(t.id)} style={{ ...S.listItem, ...(urgent ? S.taskUrgent : null), ...rowStyle(t.id) }}>
+              <DragHandle />
               <button style={S.checkBtn} onClick={() => toggle(t.id)}>
                 {t.done ? <CheckCircle2 size={18} color={project.accent} /> : <Circle size={18} color={urgent ? "#dc2626" : "var(--line-strong)"} />}
               </button>
@@ -934,11 +1102,18 @@ function TasksBody({ project, patch }) {
                 style={{ color: t.done ? "var(--muted)" : urgent ? "#dc2626" : "inherit", fontWeight: urgent ? 600 : 400 }}
               />
               <DueControl value={t.due} days={d} urgent={urgent} done={t.done} onChange={(v) => setDue(t.id, v)} />
+              <button style={S.delBtn} onClick={() => toFuture(t.id)} title="Mover a Future Tasks">
+                <ArrowDown size={15} />
+              </button>
+              <MoveToMenu targets={targets} onMove={(pid) => onMoveTask && onMoveTask("tasks", t.id, pid)} />
               <AlignToggle active={t.aligned} onClick={() => toggleAlign(t.id)} />
               <button style={S.delBtn} onClick={() => del(t.id)}><X size={15} /></button>
             </li>
           );
         })}
+        {tasks.length === 0 && (
+          <li style={{ ...S.homeEmpty, padding: "10px 0" }}>Sin tareas. Añade una abajo o arrastra desde Future Tasks.</li>
+        )}
       </ul>
       <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
         <LevelBadge level={draftLevel} onClick={() => setDraftLevel(cycleLevel(draftLevel))} title="Urgencia de la nueva tarea" />
@@ -1176,13 +1351,27 @@ function DecisionsBody({ project, patch }) {
 }
 
 /* -------- Next steps -------- */
-function NextStepsBody({ project, patch }) {
+function NextStepsBody({ project, patch, targets, onMoveTask }) {
   const items = project.nextSteps;
   const add = (text) => patch((p) => ({ nextSteps: [...p.nextSteps, { id: uid(), text, done: false }] }));
   const toggle = (id) => patch((p) => ({ nextSteps: p.nextSteps.map((t) => t.id === id ? { ...t, done: !t.done } : t) }));
   const del = (id) => patch((p) => ({ nextSteps: p.nextSteps.filter((t) => t.id !== id) }));
   const alignN = (id) => patch((p) => ({ nextSteps: p.nextSteps.map((t) => t.id === id ? { ...t, aligned: !t.aligned } : t) }));
   const setText = (id, text) => patch((p) => ({ nextSteps: p.nextSteps.map((t) => t.id === id ? { ...t, text } : t) }));
+  // recibir una tarea arrastrada desde Current Tasks
+  const fromCurrent = (id) => patch((p) => {
+    const it = p.tasks.find((t) => t.id === id);
+    if (!it) return {};
+    const { level, due, ...rest } = it;
+    return {
+      tasks: p.tasks.filter((t) => t.id !== id),
+      nextSteps: [...p.nextSteps, rest],
+    };
+  });
+
+  const { rowProps, rowStyle, zoneProps, zoneStyle } = useDragSort(
+    items, (arr) => patch({ nextSteps: arr }), "nextSteps", fromCurrent, project.id
+  );
   const toCurrent = (id) => patch((p) => {
     const it = p.nextSteps.find((t) => t.id === id);
     if (!it) return {};
@@ -1195,20 +1384,25 @@ function NextStepsBody({ project, patch }) {
   });
   return (
     <div>
-      <ul style={S.list}>
+      <ul style={{ ...S.list, ...(zoneStyle || {}) }} {...zoneProps}>
         {items.map((t) => (
-          <li key={t.id} style={S.listItem}>
+          <li key={t.id} {...rowProps(t.id)} style={{ ...S.listItem, ...rowStyle(t.id) }}>
+            <DragHandle />
             <button style={S.checkBtn} onClick={() => toggle(t.id)}>
               {t.done ? <CheckCircle2 size={18} color={project.accent} /> : <ArrowRight size={17} color="var(--line-strong)" />}
             </button>
             <EditableText value={t.text} done={t.done} onChange={(v) => setText(t.id, v)} />
-            <button style={S.delBtn} onClick={() => toCurrent(t.id)} title="Convertir en Current Task">
+            <button style={S.delBtn} onClick={() => toCurrent(t.id)} title="Mover a Current Tasks">
               <ArrowUp size={15} />
             </button>
+            <MoveToMenu targets={targets} onMove={(pid) => onMoveTask && onMoveTask("nextSteps", t.id, pid)} />
             <AlignToggle active={t.aligned} onClick={() => alignN(t.id)} />
             <button style={S.delBtn} onClick={() => del(t.id)}><X size={15} /></button>
           </li>
         ))}
+        {items.length === 0 && (
+          <li style={{ ...S.homeEmpty, padding: "10px 0" }}>Sin tareas futuras. Añade una abajo o arrastra desde Current Tasks.</li>
+        )}
       </ul>
       <AddRow placeholder="Siguiente paso…" onAdd={add} accent={project.accent} />
     </div>
@@ -1797,7 +1991,10 @@ const S = {
   projectList: { flex: 1, overflowY: "auto", marginTop: 14, display: "flex", flexDirection: "column", gap: 3 },
   projItem: { display: "flex", alignItems: "center", gap: 10, padding: "9px 11px", borderRadius: 9, border: "1px solid transparent", background: "transparent", cursor: "pointer", textAlign: "left", fontSize: 14, color: "var(--ink)", width: "100%" },
   projItemActive: { background: "var(--accent-soft)", border: "1px solid transparent", color: "var(--accent)", fontWeight: 600 },
-  projItemOver: { boxShadow: "inset 0 2px 0 var(--accent)" },
+  projItemOver: { boxShadow: "inset 0 0 0 2px var(--accent)", background: "var(--accent-soft)" },
+  moveMenu: { position: "absolute", top: "calc(100% + 6px)", right: 0, zIndex: 50, minWidth: 190, maxHeight: 240, overflowY: "auto", background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 12, boxShadow: "0 16px 40px rgba(30,36,51,.18)", padding: 6 },
+  moveMenuHead: { fontSize: 11, fontWeight: 700, color: "var(--muted)", letterSpacing: ".05em", padding: "6px 8px 4px" },
+  moveMenuItem: { display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "8px 8px", borderRadius: 8, border: "none", background: "transparent", color: "var(--ink)", cursor: "pointer", fontSize: 13.5, textAlign: "left" },
   dot: { width: 9, height: 9, borderRadius: 999, flex: "0 0 auto" },
   topicTag: { fontSize: 10.5, color: "var(--muted)", border: "1px solid var(--line)", borderRadius: 6, padding: "1px 6px", letterSpacing: ".04em", textTransform: "uppercase" },
   syncRow: { display: "flex", alignItems: "center", gap: 7, paddingTop: 12, marginTop: 8, borderTop: "1px solid var(--line)" },
