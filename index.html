@@ -850,6 +850,49 @@ function AlignToggle({ active, onClick }) {
     </button>
   );
 }
+
+/* -------- texto editable en línea -------- */
+function EditableText({ value, onChange, done, style }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value);
+
+  const save = () => {
+    const v = draft.trim();
+    if (v && v !== value) onChange(v);
+    setEditing(false);
+  };
+
+  if (editing) {
+    return (
+      <input
+        autoFocus
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") save();
+          if (e.key === "Escape") { setDraft(value); setEditing(false); }
+        }}
+        onBlur={save}
+        style={{ flex: 1, minWidth: 0, padding: "3px 7px", borderRadius: 7, border: "1px solid var(--accent)", background: "var(--surface)", color: "var(--ink)", fontSize: 14, outline: "none" }}
+      />
+    );
+  }
+  return (
+    <span
+      onClick={() => { setDraft(value); setEditing(true); }}
+      title="Clic para editar"
+      style={{
+        flex: 1, minWidth: 0, cursor: "text", overflowWrap: "anywhere",
+        textDecoration: done ? "line-through" : "none",
+        color: done ? "var(--muted)" : "inherit",
+        ...style,
+      }}
+    >
+      {value}
+    </span>
+  );
+}
+
 function TasksBody({ project, patch }) {
   const tasks = project.tasks;
   const [draft, setDraft] = useState("");
@@ -864,6 +907,7 @@ function TasksBody({ project, patch }) {
   const toggle = (id) => patch((p) => ({ tasks: p.tasks.map((t) => t.id === id ? { ...t, done: !t.done } : t) }));
   const setLevel = (id) => patch((p) => ({ tasks: p.tasks.map((t) => t.id === id ? { ...t, level: cycleLevel(t.level || "M") } : t) }));
   const setDue = (id, due) => patch((p) => ({ tasks: p.tasks.map((t) => t.id === id ? { ...t, due } : t) }));
+  const setText = (id, text) => patch((p) => ({ tasks: p.tasks.map((t) => t.id === id ? { ...t, text } : t) }));
   const toggleAlign = (id) => patch((p) => ({ tasks: p.tasks.map((t) => t.id === id ? { ...t, aligned: !t.aligned } : t) }));
   const del = (id) => patch((p) => ({ tasks: p.tasks.filter((t) => t.id !== id) }));
   const done = tasks.filter((t) => t.done).length;
@@ -883,9 +927,12 @@ function TasksBody({ project, patch }) {
                 {t.done ? <CheckCircle2 size={18} color={project.accent} /> : <Circle size={18} color={urgent ? "#dc2626" : "var(--line-strong)"} />}
               </button>
               <LevelBadge level={t.level || "M"} onClick={() => setLevel(t.id)} />
-              <span style={{ flex: 1, textDecoration: t.done ? "line-through" : "none", color: t.done ? "var(--muted)" : urgent ? "#dc2626" : "inherit", fontWeight: urgent ? 600 : 400 }}>
-                {t.text}
-              </span>
+              <EditableText
+                value={t.text}
+                done={t.done}
+                onChange={(v) => setText(t.id, v)}
+                style={{ color: t.done ? "var(--muted)" : urgent ? "#dc2626" : "inherit", fontWeight: urgent ? 600 : 400 }}
+              />
               <DueControl value={t.due} days={d} urgent={urgent} done={t.done} onChange={(v) => setDue(t.id, v)} />
               <AlignToggle active={t.aligned} onClick={() => toggleAlign(t.id)} />
               <button style={S.delBtn} onClick={() => del(t.id)}><X size={15} /></button>
@@ -950,6 +997,7 @@ function ProgressBody({ project, patch }) {
   const addLog = (text) => patch((p) => ({ progress: { ...p.progress, log: [{ id: uid(), date: today(), text }, ...p.progress.log] } }));
   const delLog = (id) => patch((p) => ({ progress: { ...p.progress, log: p.progress.log.filter((l) => l.id !== id) } }));
   const alignLog = (id) => patch((p) => ({ progress: { ...p.progress, log: p.progress.log.map((l) => l.id === id ? { ...l, aligned: !l.aligned } : l) } }));
+  const setLogText = (id, text) => patch((p) => ({ progress: { ...p.progress, log: p.progress.log.map((l) => l.id === id ? { ...l, text } : l) } }));
   const alignSummary = () => patch((p) => ({ progressAlign: { ...(p.progressAlign || {}), aligned: !p.progressAlign?.aligned } }));
   return (
     <div>
@@ -970,7 +1018,7 @@ function ProgressBody({ project, patch }) {
         {pr.log.map((l) => (
           <li key={l.id} style={S.listItem}>
             <span style={S.dateTag}>{l.date.slice(5)}</span>
-            <span style={{ flex: 1 }}>{l.text}</span>
+            <EditableText value={l.text} onChange={(v) => setLogText(l.id, v)} />
             <AlignToggle active={l.aligned} onClick={() => alignLog(l.id)} />
             <button style={S.delBtn} onClick={() => delLog(l.id)}><X size={15} /></button>
           </li>
@@ -1095,6 +1143,7 @@ function DecisionsBody({ project, patch }) {
   };
   const del = (id) => patch((p) => ({ decisions: p.decisions.filter((d) => d.id !== id) }));
   const alignD = (id) => patch((p) => ({ decisions: p.decisions.map((d) => d.id === id ? { ...d, aligned: !d.aligned } : d) }));
+  const setField = (id, field, val) => patch((p) => ({ decisions: p.decisions.map((d) => d.id === id ? { ...d, [field]: val } : d) }));
   return (
     <div>
       <ul style={{ ...S.list, gap: 10 }}>
@@ -1103,8 +1152,12 @@ function DecisionsBody({ project, patch }) {
             <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
               <Lightbulb size={15} color={project.accent} style={{ marginTop: 2 }} />
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: 600, overflowWrap: "anywhere" }}>{d.decision}</div>
-                {d.rationale && <div style={{ fontSize: 13, color: "var(--muted)", marginTop: 2, lineHeight: 1.45, overflowWrap: "anywhere" }}>{d.rationale}</div>}
+                <div style={{ display: "flex", fontWeight: 600 }}>
+                  <EditableText value={d.decision} onChange={(v) => setField(d.id, "decision", v)} />
+                </div>
+                <div style={{ display: "flex", fontSize: 13, color: "var(--muted)", marginTop: 2, lineHeight: 1.45 }}>
+                  <EditableText value={d.rationale || "—"} onChange={(v) => setField(d.id, "rationale", v === "—" ? "" : v)} />
+                </div>
                 <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 4 }}>{d.date}</div>
               </div>
               <AlignToggle active={d.aligned} onClick={() => alignD(d.id)} />
@@ -1129,6 +1182,7 @@ function NextStepsBody({ project, patch }) {
   const toggle = (id) => patch((p) => ({ nextSteps: p.nextSteps.map((t) => t.id === id ? { ...t, done: !t.done } : t) }));
   const del = (id) => patch((p) => ({ nextSteps: p.nextSteps.filter((t) => t.id !== id) }));
   const alignN = (id) => patch((p) => ({ nextSteps: p.nextSteps.map((t) => t.id === id ? { ...t, aligned: !t.aligned } : t) }));
+  const setText = (id, text) => patch((p) => ({ nextSteps: p.nextSteps.map((t) => t.id === id ? { ...t, text } : t) }));
   const toCurrent = (id) => patch((p) => {
     const it = p.nextSteps.find((t) => t.id === id);
     if (!it) return {};
@@ -1147,7 +1201,7 @@ function NextStepsBody({ project, patch }) {
             <button style={S.checkBtn} onClick={() => toggle(t.id)}>
               {t.done ? <CheckCircle2 size={18} color={project.accent} /> : <ArrowRight size={17} color="var(--line-strong)" />}
             </button>
-            <span style={{ flex: 1, textDecoration: t.done ? "line-through" : "none", color: t.done ? "var(--muted)" : "inherit" }}>{t.text}</span>
+            <EditableText value={t.text} done={t.done} onChange={(v) => setText(t.id, v)} />
             <button style={S.delBtn} onClick={() => toCurrent(t.id)} title="Convertir en Current Task">
               <ArrowUp size={15} />
             </button>
@@ -1177,6 +1231,7 @@ function RisksBody({ project, patch }) {
   const toggle = (id) => patch((p) => ({ risks: p.risks.map((r) => r.id === id ? { ...r, resolved: !r.resolved } : r) }));
   const del = (id) => patch((p) => ({ risks: p.risks.filter((r) => r.id !== id) }));
   const alignR = (id) => patch((p) => ({ risks: p.risks.map((r) => r.id === id ? { ...r, aligned: !r.aligned } : r) }));
+  const setField = (id, field, val) => patch((p) => ({ risks: p.risks.map((r) => r.id === id ? { ...r, [field]: val } : r) }));
 
   // ordena por severidad (H > M > L), los resueltos al final
   const order = { H: 0, M: 1, L: 2 };
@@ -1192,12 +1247,13 @@ function RisksBody({ project, patch }) {
             <div style={{ display: "flex", alignItems: "flex-start", gap: 9 }}>
               <LevelBadge level={r.level || "M"} onClick={() => cycle(r.id)} title="Cambiar impacto (H/M/L)" />
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: 600, textDecoration: r.resolved ? "line-through" : "none", overflowWrap: "anywhere" }}>{r.text}</div>
-                {r.mitigation && (
-                  <div style={{ fontSize: 13, color: "var(--muted)", marginTop: 3, lineHeight: 1.45, overflowWrap: "anywhere" }}>
-                    <span style={{ fontWeight: 600 }}>Mitigación: </span>{r.mitigation}
-                  </div>
-                )}
+                <div style={{ display: "flex", fontWeight: 600 }}>
+                  <EditableText value={r.text} done={r.resolved} onChange={(v) => setField(r.id, "text", v)} />
+                </div>
+                <div style={{ display: "flex", fontSize: 13, color: "var(--muted)", marginTop: 3, lineHeight: 1.45 }}>
+                  <span style={{ fontWeight: 600, flex: "0 0 auto", marginRight: 4 }}>Mitigación: </span>
+                  <EditableText value={r.mitigation || "—"} onChange={(v) => setField(r.id, "mitigation", v === "—" ? "" : v)} />
+                </div>
               </div>
               <button style={S.checkBtn} onClick={() => toggle(r.id)} title={r.resolved ? "Reabrir" : "Marcar mitigado"}>
                 {r.resolved ? <CheckCircle2 size={18} color={project.accent} /> : <Circle size={18} color="var(--line-strong)" />}
@@ -1817,7 +1873,6 @@ const S = {
   typeCard: { flex: 1, display: "flex", flexDirection: "column", alignItems: "flex-start", textAlign: "left", padding: "13px 14px", borderRadius: 11, border: "1px solid var(--line)", background: "var(--bg)", cursor: "pointer" },
   typeCardActive: { borderColor: "var(--ink)", background: "var(--surface)", boxShadow: "0 0 0 1px var(--ink)" },
 };
-
 
 /* ===================== Firebase: Google Auth + Firestore ===================== */
 import { initializeApp } from "firebase/app";
